@@ -1,0 +1,342 @@
+{
+  "metadata" : {
+    "name" : "text-mining-test",
+    "user_save_timestamp" : "1970-01-01T00:00:00.000Z",
+    "auto_save_timestamp" : "1970-01-01T00:00:00.000Z",
+    "language_info" : {
+      "name" : "scala",
+      "file_extension" : "scala",
+      "codemirror_mode" : "text/x-scala"
+    },
+    "trusted" : true,
+    "customLocalRepo" : null,
+    "customRepos" : null,
+    "customDeps" : null,
+    "customImports" : null,
+    "customArgs" : null,
+    "customSparkConf" : null
+  },
+  "cells" : [ {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "# XKE Text Mining - Solutions\n----\n****"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "## Settings\n----"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.sql.SQLContext\nimport org.apache.spark.sql.functions.udf",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "import org.apache.spark.sql.SQLContext\nimport org.apache.spark.sql.functions.udf\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 70
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val sqlContext = new SQLContext(sc)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "sqlContext: org.apache.spark.sql.SQLContext = org.apache.spark.sql.SQLContext@77562976\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "org.apache.spark.sql.SQLContext@77562976"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 24
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "## 1 - Load data\n----"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "###Text Corpus"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "case class TextInfo(title: String, category: String, content: String)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "defined class TextInfo\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 15
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val rdd_corpus = (sc.textFile(\"/opt/docker/notebooks/data/articles_blog/*/*/*.txt\")\n                  .map(_.split(\"\\\\|\"))\n                  .map(x => TextInfo(x(0), x(1), x(2))))\nval df_corpus = sqlContext.createDataFrame(rdd_corpus)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "rdd_corpus: org.apache.spark.rdd.RDD[TextInfo] = MapPartitionsRDD[28] at map at <console>:52\ndf_corpus: org.apache.spark.sql.DataFrame = [title: string, category: string, content: string]\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "<span style=\"color:red;\">Ooops, exception in the cell: </span>"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 29
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "df_corpus.count()",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "res14: Long = 335\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "335"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 30
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "### Stopwords"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val stopwords = sc.textFile(\"/opt/docker/notebooks/data/stopwords_french.txt\").collect()",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "stopwords: Array[String] = Array(alors, au, aucuns, aussi, autre, avant, avec, avoir, bon, car, ce, cela, ces, ceux, chaque, ci, comme, comment, dans, de, des, du, dedans, dehors, depuis, deux, devrait, doit, donc, dos, droite, d?but, elle, elles, en, encore, essai, est, et, eu, fait, faites, fois, font, force, haut, hors, ici, il, ils, je, juste, la, le, les, leur, l?, ma, maintenant, mais, mes, mine, moins, mon, mot, m?me, ni, nomm?s, notre, nous, nouveaux, ou, o?, par, parce, parole, pas, personnes, peut, peu, pi?ce, plupart, pour, pourquoi, quand, que, quel, quelle, quelles, quels, qui, sa, sans, ses, seulement, si, sien, son, sont, sous, soyez, sujet, sur, ta, tandis, tellement, tels, tes, ton, tous, tout, trop, tr?s, tu, valeur, voie, voient, vont, votre, vous, vu, ?a, ?taient, ?t..."
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "<div class=\"container-fluid\"><div><div class=\"col-md-12\"><div>\n      <script data-this=\"{&quot;dataId&quot;:&quot;anon9155c154111389bb1691c46791e5dc93&quot;,&quot;dataInit&quot;:[{&quot;string value&quot;:&quot;alors&quot;},{&quot;string value&quot;:&quot;au&quot;},{&quot;string value&quot;:&quot;aucuns&quot;},{&quot;string value&quot;:&quot;aussi&quot;},{&quot;string value&quot;:&quot;autre&quot;},{&quot;string value&quot;:&quot;avant&quot;},{&quot;string value&quot;:&quot;avec&quot;},{&quot;string value&quot;:&quot;avoir&quot;},{&quot;string value&quot;:&quot;bon&quot;},{&quot;string value&quot;:&quot;car&quot;},{&quot;string value&quot;:&quot;ce&quot;},{&quot;string value&quot;:&quot;cela&quot;},{&quot;string value&quot;:&quot;ces&quot;},{&quot;string value&quot;:&quot;ceux&quot;},{&quot;string value&quot;:&quot;chaque&quot;},{&quot;string value&quot;:&quot;ci&quot;},{&quot;string value&quot;:&quot;comme&quot;},{&quot;string value&quot;:&quot;comment&quot;},{&quot;string value&quot;:&quot;dans&quot;},{&quot;string value&quot;:&quot;de&quot;},{&quot;string value&quot;:&quot;des&quot;},{&quot;string value&quot;:&quot;du&quot;},{&quot;string value&quot;:&quot;dedans&quot;},{&quot;string value&quot;:&quot;dehors&quot;},{&quot;string value&quot;:&quot;depuis&quot;}],&quot;genId&quot;:&quot;1868027507&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(['../javascripts/notebook/playground','../javascripts/notebook/magic/tableChart'], \n      function(playground, _magictableChart) {\n        // data ==> data-this (in observable.js's scopedEval) ==> this in JS => { dataId, dataInit, ... }\n        // this ==> scope (in observable.js's scopedEval) ==> this.parentElement ==> div.container below (toHtml)\n\n        playground.call(data,\n                        this\n                        ,\n                        {\n    \"f\": _magictableChart,\n    \"o\": {\"headers\":[\"string value\"],\"width\":600,\"height\":400}\n  }\n  \n                        \n                        \n                      );\n      }\n    );/*]]>*/</script>\n    <div>\n        <label for=\"input-anon8a58dc84b3c32045ff79a430e93a0981\">\n      Max Points\n    </label><input id=\"input-anon8a58dc84b3c32045ff79a430e93a0981\" type=\"number\" name=\"input-anon8a58dc84b3c32045ff79a430e93a0981\" data-bind=\"textInput: value, fireChange: true, valueUpdate: 'input'\">\n      <script data-selector=\"#input-anon8a58dc84b3c32045ff79a430e93a0981\" data-this=\"{&quot;valueId&quot;:&quot;anon8a58dc84b3c32045ff79a430e93a0981&quot;,&quot;valueInit&quot;:25}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(\n ['observable', 'knockout'],\n function (Observable, ko) {\n   //console.log(\"-----------\")\n   //console.dir(this);\n   //console.dir(valueId);\n   var obs = Observable.makeObservable(valueId)\n                       .extend({ rateLimit: { //throttle\n                                   timeout: 500,\n                                   method: \"notifyWhenChangesStop\"\n                                 }\n                               }\n                       );\n   ko.applyBindings({\n     value: obs\n   }, this);\n   obs(valueInit);\n }\n)/*]]>*/</script>\n    </input>\n        <p data-bind=\"text: value\"><script data-this=\"{&quot;valueId&quot;:&quot;anon308c19a4691f287f256de7acb6b4d0a8&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/\nreq(\n['observable', 'knockout'],\nfunction (O, ko) {\n  ko.applyBindings({\n      value: O.makeObservable(valueId)\n    },\n    this\n  );\n});\n        /*]]>*/</script></p> <span style=\"color:red\"><p data-bind=\"text: value\"><script data-this=\"{&quot;valueId&quot;:&quot;anond75ae54efec474c512ca857ae7055bda&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/\nreq(\n['observable', 'knockout'],\nfunction (O, ko) {\n  ko.applyBindings({\n      value: O.makeObservable(valueId)\n    },\n    this\n  );\n});\n        /*]]>*/</script></p></span>\n        <div>\n        </div>\n      </div></div></div></div></div>"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 39
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "## 2 - Text Preprocessing\n----"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "df_corpus.printSchema()",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "root\n |-- title: string (nullable = true)\n |-- category: string (nullable = true)\n |-- content: string (nullable = true)\n\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 48
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val tokens: String => Array[String] = _.replaceAll(\"[^a-z\\\\sA-Z]\",\"\").toLowerCase().split(\" \").filter(word => !stopwords.contains(word) & word.length > 2)\nval tokenizeContent = udf(tokens)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "tokens: String => Array[String] = <function1>\ntokenizeContent: org.apache.spark.sql.UserDefinedFunction = UserDefinedFunction(<function1>,ArrayType(StringType,true),List(StringType))\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "UserDefinedFunction(&lt;function1&gt;,ArrayType(StringType,true),List(StringType))"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 80
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val df_tokens = df_corpus.withColumn(\"tokens\", tokenizeContent(df_corpus(\"content\")))",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "df_tokens: org.apache.spark.sql.DataFrame = [title: string, category: string, content: string, tokens: array<string>]\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "<div class=\"df-canvas\">\n      <script data-this=\"{&quot;dataId&quot;:&quot;anon96884e4dbb7d0ea3310ad2f85c0ef4d1&quot;,&quot;partitionIndexId&quot;:&quot;anonaa4a3be5069f6ac9241f5b09b54e854e&quot;,&quot;numPartitions&quot;:14,&quot;dfSchema&quot;:{&quot;type&quot;:&quot;struct&quot;,&quot;fields&quot;:[{&quot;name&quot;:&quot;title&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;category&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;content&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;tokens&quot;,&quot;type&quot;:{&quot;type&quot;:&quot;array&quot;,&quot;elementType&quot;:&quot;string&quot;,&quot;containsNull&quot;:true},&quot;nullable&quot;:true,&quot;metadata&quot;:{}}]}}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(['../javascripts/notebook/dataframe','../javascripts/notebook/consoleDir'], \n      function(dataframe, extension) {\n        dataframe.call(data, this, extension);\n      }\n    );/*]]>*/</script>\n      <link rel=\"stylesheet\" href=\"/assets/stylesheets/ipython/css/dataframe.css\" type=\"text/css\"/>\n    </div>"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 79
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "toto.replaceAll(\"[^a-z\\\\sA-Z]\",\"\").toLowerCase().split(\" \").filter(word => !stopwords.contains(word) & word.length > 2)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "res32: Array[String] = Array(coder, jours, plusieurs, diteurs, favoris, celuici, plutt, quun, oblig, cest, install, poste, nai, droits, administrateurs, lutilise, toujours, changerai, lutilise, sens, vraiment, laise, rend, travail, pluis, fluide, barrire, entre, pense, produis, raisons, bien, dautres, connatre, outils, rend, souvent, plus, intressant, permet, denlever, certaines, frustrations, vim, emacs, sublime, text, eclipse, intellij, netbeans, xcode, chacun, leurs, points, forts, cas, dutilisations, cibls, peuvent, faire, gagner, temps, jours, choisir, ide, souvent, troll, velu, vouloir, lancer, polmique, propose, retour, ans, passs, intellij, macos, chez, client, raccourcis, prsente, prsents, autres, systmes, dexploitation, suffit, souvent, remplacer, cmd, ctrl, nhsitez, rfrer, ch..."
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "<div class=\"container-fluid\"><div><div class=\"col-md-12\"><div>\n      <script data-this=\"{&quot;dataId&quot;:&quot;anonf4b89f25b8e59e4b60e3e42a0b8fb515&quot;,&quot;dataInit&quot;:[{&quot;string value&quot;:&quot;coder&quot;},{&quot;string value&quot;:&quot;jours&quot;},{&quot;string value&quot;:&quot;plusieurs&quot;},{&quot;string value&quot;:&quot;diteurs&quot;},{&quot;string value&quot;:&quot;favoris&quot;},{&quot;string value&quot;:&quot;celuici&quot;},{&quot;string value&quot;:&quot;plutt&quot;},{&quot;string value&quot;:&quot;quun&quot;},{&quot;string value&quot;:&quot;oblig&quot;},{&quot;string value&quot;:&quot;cest&quot;},{&quot;string value&quot;:&quot;install&quot;},{&quot;string value&quot;:&quot;poste&quot;},{&quot;string value&quot;:&quot;nai&quot;},{&quot;string value&quot;:&quot;droits&quot;},{&quot;string value&quot;:&quot;administrateurs&quot;},{&quot;string value&quot;:&quot;lutilise&quot;},{&quot;string value&quot;:&quot;toujours&quot;},{&quot;string value&quot;:&quot;changerai&quot;},{&quot;string value&quot;:&quot;lutilise&quot;},{&quot;string value&quot;:&quot;sens&quot;},{&quot;string value&quot;:&quot;vraiment&quot;},{&quot;string value&quot;:&quot;laise&quot;},{&quot;string value&quot;:&quot;rend&quot;},{&quot;string value&quot;:&quot;travail&quot;},{&quot;string value&quot;:&quot;pluis&quot;}],&quot;genId&quot;:&quot;543455940&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(['../javascripts/notebook/playground','../javascripts/notebook/magic/tableChart'], \n      function(playground, _magictableChart) {\n        // data ==> data-this (in observable.js's scopedEval) ==> this in JS => { dataId, dataInit, ... }\n        // this ==> scope (in observable.js's scopedEval) ==> this.parentElement ==> div.container below (toHtml)\n\n        playground.call(data,\n                        this\n                        ,\n                        {\n    \"f\": _magictableChart,\n    \"o\": {\"headers\":[\"string value\"],\"width\":600,\"height\":400}\n  }\n  \n                        \n                        \n                      );\n      }\n    );/*]]>*/</script>\n    <div>\n        <label for=\"input-anon7d9c5ff19d333abeaa2b67389d69a2ac\">\n      Max Points\n    </label><input id=\"input-anon7d9c5ff19d333abeaa2b67389d69a2ac\" type=\"number\" name=\"input-anon7d9c5ff19d333abeaa2b67389d69a2ac\" data-bind=\"textInput: value, fireChange: true, valueUpdate: 'input'\">\n      <script data-selector=\"#input-anon7d9c5ff19d333abeaa2b67389d69a2ac\" data-this=\"{&quot;valueId&quot;:&quot;anon7d9c5ff19d333abeaa2b67389d69a2ac&quot;,&quot;valueInit&quot;:25}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(\n ['observable', 'knockout'],\n function (Observable, ko) {\n   //console.log(\"-----------\")\n   //console.dir(this);\n   //console.dir(valueId);\n   var obs = Observable.makeObservable(valueId)\n                       .extend({ rateLimit: { //throttle\n                                   timeout: 500,\n                                   method: \"notifyWhenChangesStop\"\n                                 }\n                               }\n                       );\n   ko.applyBindings({\n     value: obs\n   }, this);\n   obs(valueInit);\n }\n)/*]]>*/</script>\n    </input>\n        <p data-bind=\"text: value\"><script data-this=\"{&quot;valueId&quot;:&quot;anoncb2b3373234b73e2e9937a7db5b6579f&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/\nreq(\n['observable', 'knockout'],\nfunction (O, ko) {\n  ko.applyBindings({\n      value: O.makeObservable(valueId)\n    },\n    this\n  );\n});\n        /*]]>*/</script></p> <span style=\"color:red\"><p data-bind=\"text: value\"><script data-this=\"{&quot;valueId&quot;:&quot;anondfe6c05f0efddcab425842f68fb402c1&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/\nreq(\n['observable', 'knockout'],\nfunction (O, ko) {\n  ko.applyBindings({\n      value: O.makeObservable(valueId)\n    },\n    this\n  );\n});\n        /*]]>*/</script></p></span>\n        <div>\n        </div>\n      </div></div></div></div></div>"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 64
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "## 3 - Word2Vec\n----"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.ml.feature.Word2Vec",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "import org.apache.spark.ml.feature.Word2Vec\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 81
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "### Training model"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val word2Vec = new Word2Vec()\n  .setInputCol(\"tokens\")\n  .setOutputCol(\"w2c_features\")\n  .setVectorSize(50)\n  .setMinCount(10)\n  .setMaxIter(50)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "word2Vec: org.apache.spark.ml.feature.Word2Vec = w2v_ffb3d89ab4d7\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "w2v_ffb3d89ab4d7"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 86
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val word2Vec_model = word2Vec.fit(df_tokens)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "word2Vec_model: org.apache.spark.ml.feature.Word2VecModel = w2v_ffb3d89ab4d7\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "w2v_ffb3d89ab4d7"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 87
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "word2Vec_model.findSynonyms(\"python\", 10)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "res39: org.apache.spark.sql.DataFrame = [word: string, similarity: double]\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "<div class=\"df-canvas\">\n      <script data-this=\"{&quot;dataId&quot;:&quot;anonb55a163484867b4c105b93eaa607d8d5&quot;,&quot;partitionIndexId&quot;:&quot;anon69b28b6e7b56f4e56a6aa94ee9b865b8&quot;,&quot;numPartitions&quot;:1,&quot;dfSchema&quot;:{&quot;type&quot;:&quot;struct&quot;,&quot;fields&quot;:[{&quot;name&quot;:&quot;word&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;similarity&quot;,&quot;type&quot;:&quot;double&quot;,&quot;nullable&quot;:false,&quot;metadata&quot;:{}}]}}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(['../javascripts/notebook/dataframe','../javascripts/notebook/consoleDir'], \n      function(dataframe, extension) {\n        dataframe.call(data, this, extension);\n      }\n    );/*]]>*/</script>\n      <link rel=\"stylesheet\" href=\"/assets/stylesheets/ipython/css/dataframe.css\" type=\"text/css\"/>\n    </div>"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 90
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "",
+    "outputs" : [ ]
+  } ],
+  "nbformat" : 4
+}
