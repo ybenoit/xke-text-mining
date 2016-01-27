@@ -51,8 +51,7 @@ Your can then go the the notebooks directory and start working on the exercice n
 * Stop a container: `docker stop container_id`
 * Remove an image from your computer: `docker rmi -f image_id`
 
-You may eventually have to check your default VM size on VirtualBox. 4Go is a good size.
-No other knowledge of docker is required to complete the exercices.
+You may eventually have to check your default VM size on VirtualBox (4GB is a good size). No other knowledge of docker is required to complete the exercices.
 
 ## About the exercices
 
