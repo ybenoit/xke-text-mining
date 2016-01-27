@@ -52,3 +52,7 @@ Your can then go the the notebooks directory and start working on the exercice n
 * Remove an image from your computer: `docker rmi -f image_id`
 
 No other knowledge of docker is required to complete the exercices.
+
+## About the exercices
+
+In the exercices, you will be working on processing articles from [Xebia's blog](https://docs.docker.com/installation/) since 2014. The goal is to introduce the user to some useful techniques and algorithms when working on text data.
