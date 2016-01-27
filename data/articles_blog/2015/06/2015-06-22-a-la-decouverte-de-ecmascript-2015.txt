@@ -1,0 +1,1 @@
+2015-06-22-a-la-decouverte-de-ecmascript-2015|Front|  Vous les avez peut-être rencontrées lors du Best Of Web 2015 en format papier, nous vous les proposons aujourd’hui en format PDF. Notre fondation Front vous propose de découvrir les caractéristiques de ES 2015 sur ces fiches techniques Bonne lecture ! 
