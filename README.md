@@ -2,25 +2,22 @@
 
 Hands' on presentation on Text Mining. Exercices and solutions are available in notebooks both in Scala and Python.
 
-## Building a docker image and Running a container
+## Run python notebooks
+
+In order to be able to complete the exercices in pyspark notebooks, you need to already have a [python distribution](https://www.continuum.io/downloads), a [pre-built version of spark with hadoop](https://spark.apache.org/downloads.html) and the databricks [spark-csv](https://github.com/databricks/spark-csv) package. After sourcing your SPARK-HOME and PYTHON-PATH in your bash_profile, you will be able to load a jupyter or ipython notebook with pyspark with the following command line:
+
+```
+cd /your/path/xke-text-mining/
+IPYTHON_OPTS="notebook" pyspark --master local[*] --packages com.databricks:spark-csv_2.10:1.1.0
+```
+
+This will load a new window on your browser which will allow you to run the notebooks stored in python/notebooks.
+
+## Run scala notebooks
 
 If you do not have notebooks configurations installed in your computer, you can build the docker image associated to the language of your choice. The commands given as examples were run in a MacBook, please go on [docker's website](https://docs.docker.com/installation/) to install docker on your OS before running the following commands.
 
-### In Python
-
-To build the docker jupyter pyspark-notebook image, run the following lines into your docker terminal:
-
-```
-cd /your/path/xke-text-mining/python/
-docker build -t pyspark-notebook .
-docker run -d -p 8888:8888 -v /your/absolute/path/xke-text-mining/:/home/joyvan/work pyspark-notebook
-```
-
-This will run a docker container with all requirements to work on pyspark notebooks.
-
-### In Scala
-
-To build the docker datafellas scala-spark-notebook image, run the following lines into your docker terminal:
+To build the docker datafellas scala-spark-notebook image and run a container, enter the following lines into your docker terminal:
 
 ```
 cd /your/path/xke-text-mining/scala/
