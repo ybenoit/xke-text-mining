@@ -13,7 +13,7 @@ To build the docker jupyter pyspark-notebook image, run the following lines into
 ```
 cd /your/path/xke-text-mining/python/
 docker build -t pyspark-notebook .
-docker run -d -p 8888:8888 -v /your/path/xke-text-mining/:/home/joyvan/work pyspark-notebook
+docker run -d -p 8888:8888 -v /your/absolute/path/xke-text-mining/:/home/joyvan/work pyspark-notebook
 ```
 
 This will run a docker container with all requirements to work on pyspark notebooks.
@@ -25,7 +25,7 @@ To build the docker datafellas scala-spark-notebook image, run the following lin
 ```
 cd /your/path/xke-text-mining/scala/
 docker build -t scala-spark-notebook .
-docker run -d -p 9000:9000 -v /your/path/xke-text-mining/:/opt/docker/notebooks/ scala-spark-notebook
+docker run -d -p 9000:9000 -v /your/absolute/path/xke-text-mining/:/opt/docker/notebooks/ scala-spark-notebook
 ```
 
 This will run a docker container with all requirements to work on spark notebooks with scala.
