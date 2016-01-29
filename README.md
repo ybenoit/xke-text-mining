@@ -37,9 +37,9 @@ To get your default ip address (on MacBook, with docker-machine):
 docker-machine ip default
 ```
 
-Then, in your browser, enter the selected ip address with the associated port (ip:8888 in Python, ip:9000 in scala for this exercice).
+Then, in your browser, enter the selected ip address with the associated port (ip:8888 in Python, ip:9000 in scala for this exercice). You should see the data/, python/ and scala/ repertories.
 
-Your can then go the the notebooks directory and start working on the exercice notebook. A notebook with some proposed solutions is also available.
+Your can then go to the repertory of the language of your choice, go to its notebooks/ directory and start working on the exercice notebook. A notebook with some proposed solutions is also available.
 
 ## Additionnal useful docker commands
 
