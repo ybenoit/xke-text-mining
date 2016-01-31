@@ -1,0 +1,1263 @@
+{
+  "metadata" : {
+    "name" : "text-mining-solution",
+    "user_save_timestamp" : "1970-01-01T00:00:00.000Z",
+    "auto_save_timestamp" : "1970-01-01T00:00:00.000Z",
+    "language_info" : {
+      "name" : "scala",
+      "file_extension" : "scala",
+      "codemirror_mode" : "text/x-scala"
+    },
+    "trusted" : true,
+    "customLocalRepo" : null,
+    "customRepos" : null,
+    "customDeps" : null,
+    "customImports" : null,
+    "customArgs" : null,
+    "customSparkConf" : null
+  },
+  "cells" : [ {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "# XKE Text Mining - Solutions\n----\n****"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "This notebook aims at introducing the user to the processing and analysis of text data in Spark with Scala."
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "## Settings\n----"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.sql.SQLContext\nval sqlContext = new SQLContext(sc)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "import org.apache.spark.sql.SQLContext\nsqlContext: org.apache.spark.sql.SQLContext = org.apache.spark.sql.SQLContext@7a0b20ae\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "org.apache.spark.sql.SQLContext@7a0b20ae"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 1
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "## 1 - Load data\n----"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "###Text Corpus"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Load the corpus of texts stored in `/opt/docker/notebooks/data/articles_blog/` into a DataFrame\n\n> Hint 1: Texts are stored in directories associated with their year and month of release. To load every texts in one RDD, you can just use `*` instead of a directory name: \n\n`/articles_blog/*/*/*.txt`\n\n> Hint 2: Each file has the following structure: Three information separated by `|`. The resulting DataFrame then must have three columns:\n- title: String\n- category: String\n- content: String\n\n> Hint 3: One way to proceed is to create a case class with the three targeted columns, load the data into a RDD thanks to the [sc.textFile](https://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.SparkContext) function and then map it with the case class. The RDD will then have an associated schema, and you will therefore be able to create a DataFrame directly with the [createDataFrame](https://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.SQLContext) function with only the resulting rdd as argument."
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "case class TextInfo(title: String, category: String, content: String)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "defined class TextInfo\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 2
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val rdd_corpus = (sc.textFile(\"/opt/docker/notebooks/data/articles_blog/*/*/*.txt\")\n                  .map(_.split(\"\\\\|\"))\n                  .map(x => TextInfo(x(0), x(1), x(2))))\nval df_corpus = sqlContext.createDataFrame(rdd_corpus)\ndf_corpus.persist()",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "rdd_corpus: org.apache.spark.rdd.RDD[TextInfo] = MapPartitionsRDD[3] at map at <console>:51\ndf_corpus: org.apache.spark.sql.DataFrame = [title: string, category: string, content: string]\nres1: df_corpus.type = [title: string, category: string, content: string]\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "<span style=\"color:red;\">Ooops, exception in the cell: </span>"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 3
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "df_corpus.printSchema()",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "root\n |-- title: string (nullable = true)\n |-- category: string (nullable = true)\n |-- content: string (nullable = true)\n\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 4
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "// Run this test to check if you got the right DataFrame size\nassert(df_corpus.count() == 335)",
+    "outputs" : [ {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 5
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "### Stopwords"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Load the stopwords stored in `/opt/docker/notebooks/data/stopwords_french.txt` in an Array[String]"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val stopwords = sc.textFile(\"/opt/docker/notebooks/data/stopwords_french.txt\").collect()",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "stopwords: Array[String] = Array(alors, au, aucuns, aussi, autre, avant, avec, avoir, bon, car, ce, cela, ces, ceux, chaque, ci, comme, comment, dans, de, des, du, dedans, dehors, depuis, deux, devrait, doit, donc, dos, droite, d?but, elle, elles, en, encore, essai, est, et, eu, fait, faites, fois, font, force, haut, hors, ici, il, ils, je, juste, la, le, les, leur, l?, ma, maintenant, mais, mes, mine, moins, mon, mot, m?me, ni, nomm?s, notre, nous, nouveaux, ou, o?, par, parce, parole, pas, personnes, peut, peu, pi?ce, plupart, pour, pourquoi, quand, que, quel, quelle, quelles, quels, qui, sa, sans, ses, seulement, si, sien, son, sont, sous, soyez, sujet, sur, ta, tandis, tellement, tels, tes, ton, tous, tout, trop, tr?s, tu, valeur, voie, voient, vont, votre, vous, vu, ?a, ?taient, ?t..."
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "<div class=\"container-fluid\"><div><div class=\"col-md-12\"><div>\n      <script data-this=\"{&quot;dataId&quot;:&quot;anon9e27b402a03025df2ee876be58418669&quot;,&quot;dataInit&quot;:[{&quot;string value&quot;:&quot;alors&quot;},{&quot;string value&quot;:&quot;au&quot;},{&quot;string value&quot;:&quot;aucuns&quot;},{&quot;string value&quot;:&quot;aussi&quot;},{&quot;string value&quot;:&quot;autre&quot;},{&quot;string value&quot;:&quot;avant&quot;},{&quot;string value&quot;:&quot;avec&quot;},{&quot;string value&quot;:&quot;avoir&quot;},{&quot;string value&quot;:&quot;bon&quot;},{&quot;string value&quot;:&quot;car&quot;},{&quot;string value&quot;:&quot;ce&quot;},{&quot;string value&quot;:&quot;cela&quot;},{&quot;string value&quot;:&quot;ces&quot;},{&quot;string value&quot;:&quot;ceux&quot;},{&quot;string value&quot;:&quot;chaque&quot;},{&quot;string value&quot;:&quot;ci&quot;},{&quot;string value&quot;:&quot;comme&quot;},{&quot;string value&quot;:&quot;comment&quot;},{&quot;string value&quot;:&quot;dans&quot;},{&quot;string value&quot;:&quot;de&quot;},{&quot;string value&quot;:&quot;des&quot;},{&quot;string value&quot;:&quot;du&quot;},{&quot;string value&quot;:&quot;dedans&quot;},{&quot;string value&quot;:&quot;dehors&quot;},{&quot;string value&quot;:&quot;depuis&quot;}],&quot;genId&quot;:&quot;265899922&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(['../javascripts/notebook/playground','../javascripts/notebook/magic/tableChart'], \n      function(playground, _magictableChart) {\n        // data ==> data-this (in observable.js's scopedEval) ==> this in JS => { dataId, dataInit, ... }\n        // this ==> scope (in observable.js's scopedEval) ==> this.parentElement ==> div.container below (toHtml)\n\n        playground.call(data,\n                        this\n                        ,\n                        {\n    \"f\": _magictableChart,\n    \"o\": {\"headers\":[\"string value\"],\"width\":600,\"height\":400}\n  }\n  \n                        \n                        \n                      );\n      }\n    );/*]]>*/</script>\n    <div>\n        <label for=\"input-anonb9992b7a6bec8009b86da1ad4e644285\">\n      Max Points\n    </label><input id=\"input-anonb9992b7a6bec8009b86da1ad4e644285\" type=\"number\" name=\"input-anonb9992b7a6bec8009b86da1ad4e644285\" data-bind=\"textInput: value, fireChange: true, valueUpdate: 'input'\">\n      <script data-selector=\"#input-anonb9992b7a6bec8009b86da1ad4e644285\" data-this=\"{&quot;valueId&quot;:&quot;anonb9992b7a6bec8009b86da1ad4e644285&quot;,&quot;valueInit&quot;:25}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(\n ['observable', 'knockout'],\n function (Observable, ko) {\n   //console.log(\"-----------\")\n   //console.dir(this);\n   //console.dir(valueId);\n   var obs = Observable.makeObservable(valueId)\n                       .extend({ rateLimit: { //throttle\n                                   timeout: 500,\n                                   method: \"notifyWhenChangesStop\"\n                                 }\n                               }\n                       );\n   ko.applyBindings({\n     value: obs\n   }, this);\n   obs(valueInit);\n }\n)/*]]>*/</script>\n    </input>\n        <p data-bind=\"text: value\"><script data-this=\"{&quot;valueId&quot;:&quot;anon464592f4a6920d826cfa1fdada6d6a34&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/\nreq(\n['observable', 'knockout'],\nfunction (O, ko) {\n  ko.applyBindings({\n      value: O.makeObservable(valueId)\n    },\n    this\n  );\n});\n        /*]]>*/</script></p> <span style=\"color:red\"><p data-bind=\"text: value\"><script data-this=\"{&quot;valueId&quot;:&quot;anon827e4a15295e4d2b8a7feb5f0b5fc8ba&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/\nreq(\n['observable', 'knockout'],\nfunction (O, ko) {\n  ko.applyBindings({\n      value: O.makeObservable(valueId)\n    },\n    this\n  );\n});\n        /*]]>*/</script></p></span>\n        <div>\n        </div>\n      </div></div></div></div></div>"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 6
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "// Run this test to check if you got the right array size\nassert(stopwords.length == 237)",
+    "outputs" : [ {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 7
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "## 2 - Tokenizer\n----"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "Now that the data is available, it is time to pre-process it before we can use it in algorithms. The first thing to do is to tokenize each text to get an array of tokens (words) that will be used afterwards."
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Create a function tokens: String => Array[String] which transforms a String into an array of tokens. The transformation can perform the following actions:\n\n- Split on spaces (mandatory)\n- Remove punctuation and numbers (can be done with `replaceAll(\"[^a-z\\\\sA-Z]\",\"\")` \n- Convert to lowercase\n- Remove every stopwords\n- Keep only words with length strictly higher than 2"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val tokens: String => Array[String] = _.replaceAll(\"[^a-z\\\\sA-Z]\",\"\").toLowerCase().split(\" \").filter(word => !stopwords.contains(word) & word.length > 2)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "tokens: String => Array[String] = <function1>\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "&lt;function1&gt;"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 8
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "// Test your function\ntokens(\"Hello, World!\")",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "res5: Array[String] = Array(hello, world)\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "<div class=\"container-fluid\"><div><div class=\"col-md-12\"><div>\n      <script data-this=\"{&quot;dataId&quot;:&quot;anon44d5bb5da7640d6c9dff6bcd19d86d47&quot;,&quot;dataInit&quot;:[{&quot;string value&quot;:&quot;hello&quot;},{&quot;string value&quot;:&quot;world&quot;}],&quot;genId&quot;:&quot;799312503&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(['../javascripts/notebook/playground','../javascripts/notebook/magic/tableChart'], \n      function(playground, _magictableChart) {\n        // data ==> data-this (in observable.js's scopedEval) ==> this in JS => { dataId, dataInit, ... }\n        // this ==> scope (in observable.js's scopedEval) ==> this.parentElement ==> div.container below (toHtml)\n\n        playground.call(data,\n                        this\n                        ,\n                        {\n    \"f\": _magictableChart,\n    \"o\": {\"headers\":[\"string value\"],\"width\":600,\"height\":400}\n  }\n  \n                        \n                        \n                      );\n      }\n    );/*]]>*/</script>\n    <div>\n        <label for=\"input-anon18c91875795ddec231911e63948055df\">\n      Max Points\n    </label><input id=\"input-anon18c91875795ddec231911e63948055df\" type=\"number\" name=\"input-anon18c91875795ddec231911e63948055df\" data-bind=\"textInput: value, fireChange: true, valueUpdate: 'input'\">\n      <script data-selector=\"#input-anon18c91875795ddec231911e63948055df\" data-this=\"{&quot;valueId&quot;:&quot;anon18c91875795ddec231911e63948055df&quot;,&quot;valueInit&quot;:25}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(\n ['observable', 'knockout'],\n function (Observable, ko) {\n   //console.log(\"-----------\")\n   //console.dir(this);\n   //console.dir(valueId);\n   var obs = Observable.makeObservable(valueId)\n                       .extend({ rateLimit: { //throttle\n                                   timeout: 500,\n                                   method: \"notifyWhenChangesStop\"\n                                 }\n                               }\n                       );\n   ko.applyBindings({\n     value: obs\n   }, this);\n   obs(valueInit);\n }\n)/*]]>*/</script>\n    </input>\n        <p data-bind=\"text: value\"><script data-this=\"{&quot;valueId&quot;:&quot;anon8be26238f08ba24c09d1097bcfd3ed44&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/\nreq(\n['observable', 'knockout'],\nfunction (O, ko) {\n  ko.applyBindings({\n      value: O.makeObservable(valueId)\n    },\n    this\n  );\n});\n        /*]]>*/</script></p> <span style=\"color:red\"><p data-bind=\"text: value\"><script data-this=\"{&quot;valueId&quot;:&quot;anoncb902ee95b489b9884acf9efb56c885c&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/\nreq(\n['observable', 'knockout'],\nfunction (O, ko) {\n  ko.applyBindings({\n      value: O.makeObservable(valueId)\n    },\n    this\n  );\n});\n        /*]]>*/</script></p></span>\n        <div>\n        </div>\n      </div></div></div></div></div>"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 9
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Create a Spark UDF (User Defined Function) which uses the previous tokens function\n\n> Hint: Use the [udf](https://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.UserDefinedFunction) function with your previous function as unique argument"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.sql.functions.udf\n\nval tokenizeContent = udf(tokens)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "import org.apache.spark.sql.functions.udf\ntokenizeContent: org.apache.spark.sql.UserDefinedFunction = UserDefinedFunction(<function1>,ArrayType(StringType,true),List(StringType))\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "UserDefinedFunction(&lt;function1&gt;,ArrayType(StringType,true),List(StringType))"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 10
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Add a new column named `tokens` to the df_corpus DataFrame containing the result of the tokenizer UDF used on the `content` column\n\n> Hint 1: Use the [withColumn](https://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.DataFrame) method of the df_corpus DataFrame\n\n> Hint 2: To apply the UDF on a DataFrame column, just do the following: `yourFunction(yourDF(col_name))`"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val df_tokens = df_corpus.withColumn(\"tokens\", tokenizeContent(df_corpus(\"content\")))",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "df_tokens: org.apache.spark.sql.DataFrame = [title: string, category: string, content: string, tokens: array<string>]\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "<div class=\"df-canvas\">\n      <script data-this=\"{&quot;dataId&quot;:&quot;anona87cace125a98f204e920d3233cc0902&quot;,&quot;partitionIndexId&quot;:&quot;anon80df68d7baea6a0d1cc9ba47c56d860b&quot;,&quot;numPartitions&quot;:14,&quot;dfSchema&quot;:{&quot;type&quot;:&quot;struct&quot;,&quot;fields&quot;:[{&quot;name&quot;:&quot;title&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;category&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;content&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;tokens&quot;,&quot;type&quot;:{&quot;type&quot;:&quot;array&quot;,&quot;elementType&quot;:&quot;string&quot;,&quot;containsNull&quot;:true},&quot;nullable&quot;:true,&quot;metadata&quot;:{}}]}}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(['../javascripts/notebook/dataframe','../javascripts/notebook/consoleDir'], \n      function(dataframe, extension) {\n        dataframe.call(data, this, extension);\n      }\n    );/*]]>*/</script>\n      <link rel=\"stylesheet\" href=\"/assets/stylesheets/ipython/css/dataframe.css\" type=\"text/css\"/>\n    </div>"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 11
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "// Check if your DataFrame has the right column names and types\ndf_tokens.dtypes",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "res6: Array[(String, String)] = Array((title,StringType), (category,StringType), (content,StringType), (tokens,ArrayType(StringType,true)))\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "<div>\n      <script data-this=\"{&quot;dataId&quot;:&quot;anonfe6763a16913a283955ee79b7d1bc074&quot;,&quot;dataInit&quot;:[{&quot;_1&quot;:&quot;title&quot;,&quot;_2&quot;:&quot;StringType&quot;},{&quot;_1&quot;:&quot;category&quot;,&quot;_2&quot;:&quot;StringType&quot;},{&quot;_1&quot;:&quot;content&quot;,&quot;_2&quot;:&quot;StringType&quot;},{&quot;_1&quot;:&quot;tokens&quot;,&quot;_2&quot;:&quot;ArrayType(StringType,true)&quot;}],&quot;genId&quot;:&quot;1703185349&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(['../javascripts/notebook/playground','../javascripts/notebook/magic/tabs'], \n      function(playground, _magictabs) {\n        // data ==> data-this (in observable.js's scopedEval) ==> this in JS => { dataId, dataInit, ... }\n        // this ==> scope (in observable.js's scopedEval) ==> this.parentElement ==> div.container below (toHtml)\n\n        playground.call(data,\n                        this\n                        ,\n                        {\n    \"f\": _magictabs,\n    \"o\": {}\n  }\n  \n                        \n                        \n                      );\n      }\n    );/*]]>*/</script>\n    <div>\n        <label for=\"input-anona5879a597643285fd9bd771f3b0538bf\">\n      Max Points (controlling all tabs)\n    </label><input id=\"input-anona5879a597643285fd9bd771f3b0538bf\" type=\"number\" name=\"input-anona5879a597643285fd9bd771f3b0538bf\" data-bind=\"textInput: value, fireChange: true, valueUpdate: 'input'\">\n      <script data-selector=\"#input-anona5879a597643285fd9bd771f3b0538bf\" data-this=\"{&quot;valueId&quot;:&quot;anona5879a597643285fd9bd771f3b0538bf&quot;,&quot;valueInit&quot;:25}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(\n ['observable', 'knockout'],\n function (Observable, ko) {\n   //console.log(\"-----------\")\n   //console.dir(this);\n   //console.dir(valueId);\n   var obs = Observable.makeObservable(valueId)\n                       .extend({ rateLimit: { //throttle\n                                   timeout: 500,\n                                   method: \"notifyWhenChangesStop\"\n                                 }\n                               }\n                       );\n   ko.applyBindings({\n     value: obs\n   }, this);\n   obs(valueInit);\n }\n)/*]]>*/</script>\n    </input>\n        <div>\n          <ul class=\"nav nav-tabs\" id=\"ul1703185349\"><li>\n                <a href=\"#tab1703185349-0\"><i class=\"fa fa-table\"/></a>\n              </li><li>\n                <a href=\"#tab1703185349-1\"><i class=\"fa fa-pie-chart\"/></a>\n              </li></ul>\n\n          <div class=\"tab-content\" id=\"tab1703185349\"><div class=\"tab-pane\" id=\"tab1703185349-0\">\n              <div>\n      <script data-this=\"{&quot;dataId&quot;:&quot;anon68b17ec1d5a61a2522f9b9cd1a92d82e&quot;,&quot;dataInit&quot;:[{&quot;_1&quot;:&quot;title&quot;,&quot;_2&quot;:&quot;StringType&quot;},{&quot;_1&quot;:&quot;category&quot;,&quot;_2&quot;:&quot;StringType&quot;},{&quot;_1&quot;:&quot;content&quot;,&quot;_2&quot;:&quot;StringType&quot;},{&quot;_1&quot;:&quot;tokens&quot;,&quot;_2&quot;:&quot;ArrayType(StringType,true)&quot;}],&quot;genId&quot;:&quot;194925073&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(['../javascripts/notebook/playground','../javascripts/notebook/magic/tableChart'], \n      function(playground, _magictableChart) {\n        // data ==> data-this (in observable.js's scopedEval) ==> this in JS => { dataId, dataInit, ... }\n        // this ==> scope (in observable.js's scopedEval) ==> this.parentElement ==> div.container below (toHtml)\n\n        playground.call(data,\n                        this\n                        ,\n                        {\n    \"f\": _magictableChart,\n    \"o\": {\"headers\":[\"_1\",\"_2\"],\"width\":600,\"height\":400}\n  }\n  \n                        \n                        \n                      );\n      }\n    );/*]]>*/</script>\n    <div>\n        <label for=\"input-anone3f37a2eb77bf8b7053f295c4e5b8029\">\n      Max Points\n    </label><input id=\"input-anone3f37a2eb77bf8b7053f295c4e5b8029\" type=\"number\" name=\"input-anone3f37a2eb77bf8b7053f295c4e5b8029\" data-bind=\"textInput: value, fireChange: true, valueUpdate: 'input'\">\n      <script data-selector=\"#input-anone3f37a2eb77bf8b7053f295c4e5b8029\" data-this=\"{&quot;valueId&quot;:&quot;anone3f37a2eb77bf8b7053f295c4e5b8029&quot;,&quot;valueInit&quot;:25}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(\n ['observable', 'knockout'],\n function (Observable, ko) {\n   //console.log(\"-----------\")\n   //console.dir(this);\n   //console.dir(valueId);\n   var obs = Observable.makeObservable(valueId)\n                       .extend({ rateLimit: { //throttle\n                                   timeout: 500,\n                                   method: \"notifyWhenChangesStop\"\n                                 }\n                               }\n                       );\n   ko.applyBindings({\n     value: obs\n   }, this);\n   obs(valueInit);\n }\n)/*]]>*/</script>\n    </input>\n        <p data-bind=\"text: value\"><script data-this=\"{&quot;valueId&quot;:&quot;anone837ad57b582bea995d2c18227ffe78b&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/\nreq(\n['observable', 'knockout'],\nfunction (O, ko) {\n  ko.applyBindings({\n      value: O.makeObservable(valueId)\n    },\n    this\n  );\n});\n        /*]]>*/</script></p> <span style=\"color:red\"><p data-bind=\"text: value\"><script data-this=\"{&quot;valueId&quot;:&quot;anonb986a05d3e0faf0ef3014b19b1417a27&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/\nreq(\n['observable', 'knockout'],\nfunction (O, ko) {\n  ko.applyBindings({\n      value: O.makeObservable(valueId)\n    },\n    this\n  );\n});\n        /*]]>*/</script></p></span>\n        <div>\n        </div>\n      </div></div>\n              </div><div class=\"tab-pane\" id=\"tab1703185349-1\">\n              <div>\n      <script data-this=\"{&quot;dataId&quot;:&quot;anon5de816444ec5a37f203a0801bc5b605d&quot;,&quot;dataInit&quot;:[{&quot;_1&quot;:&quot;title&quot;,&quot;_2&quot;:&quot;StringType&quot;},{&quot;_1&quot;:&quot;category&quot;,&quot;_2&quot;:&quot;StringType&quot;},{&quot;_1&quot;:&quot;content&quot;,&quot;_2&quot;:&quot;StringType&quot;},{&quot;_1&quot;:&quot;tokens&quot;,&quot;_2&quot;:&quot;ArrayType(StringType,true)&quot;}],&quot;genId&quot;:&quot;32589906&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(['../javascripts/notebook/playground','../javascripts/notebook/magic/pieChart'], \n      function(playground, _magicpieChart) {\n        // data ==> data-this (in observable.js's scopedEval) ==> this in JS => { dataId, dataInit, ... }\n        // this ==> scope (in observable.js's scopedEval) ==> this.parentElement ==> div.container below (toHtml)\n\n        playground.call(data,\n                        this\n                        ,\n                        {\n    \"f\": _magicpieChart,\n    \"o\": {\"series\":\"_1\",\"p\":\"_2\",\"width\":600,\"height\":400}\n  }\n  \n                        \n                        \n                      );\n      }\n    );/*]]>*/</script>\n    <div>\n        <label for=\"input-anon5660275c2f9d406254021b1a2548d591\">\n      Max Points\n    </label><input id=\"input-anon5660275c2f9d406254021b1a2548d591\" type=\"number\" name=\"input-anon5660275c2f9d406254021b1a2548d591\" data-bind=\"textInput: value, fireChange: true, valueUpdate: 'input'\">\n      <script data-selector=\"#input-anon5660275c2f9d406254021b1a2548d591\" data-this=\"{&quot;valueId&quot;:&quot;anon5660275c2f9d406254021b1a2548d591&quot;,&quot;valueInit&quot;:25}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(\n ['observable', 'knockout'],\n function (Observable, ko) {\n   //console.log(\"-----------\")\n   //console.dir(this);\n   //console.dir(valueId);\n   var obs = Observable.makeObservable(valueId)\n                       .extend({ rateLimit: { //throttle\n                                   timeout: 500,\n                                   method: \"notifyWhenChangesStop\"\n                                 }\n                               }\n                       );\n   ko.applyBindings({\n     value: obs\n   }, this);\n   obs(valueInit);\n }\n)/*]]>*/</script>\n    </input>\n        <p data-bind=\"text: value\"><script data-this=\"{&quot;valueId&quot;:&quot;anon48213bf7abeb77f28aa2474e22427407&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/\nreq(\n['observable', 'knockout'],\nfunction (O, ko) {\n  ko.applyBindings({\n      value: O.makeObservable(valueId)\n    },\n    this\n  );\n});\n        /*]]>*/</script></p> <span style=\"color:red\"><p data-bind=\"text: value\"><script data-this=\"{&quot;valueId&quot;:&quot;anona7ccec311701c3ad953ecd984ea86f61&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/\nreq(\n['observable', 'knockout'],\nfunction (O, ko) {\n  ko.applyBindings({\n      value: O.makeObservable(valueId)\n    },\n    this\n  );\n});\n        /*]]>*/</script></p></span>\n        <div>\n        </div>\n      </div></div>\n              </div></div>\n        </div>\n      </div></div>"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 12
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "df_tokens.show(2)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "+--------------------+-------------+--------------------+--------------------+\n|               title|     category|             content|              tokens|\n+--------------------+-------------+--------------------+--------------------+\n|2014-01-08-crafts...|        Craft|  Pour coder tous...|[coder, jours, pl...|\n|2014-01-10-androi...|AndroidMobile|  En tant que d?v...|[tant, dveloppeur...|\n+--------------------+-------------+--------------------+--------------------+\nonly showing top 2 rows\n\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 13
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### What are the 10 most used words in the corpus ?\n\n> Hint 1: Use the [explode](https://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.DataFrame) function to have a DataFrame with one word per line\n\n> Hint 2: You can perform the following operations\n- Use the `select` function and use the `explode` function on the `tokens` column, name it \"word\"\n- Group By the \"word\" column\n- Use the `count()` function to count the number of occurrences of each word\n- Order By the count result, [descending](https://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.Column), and show the 10 first resulting words"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.sql.functions.{explode, desc}\n\nval df_words = df_tokens.select(explode(df_tokens(\"tokens\")).alias(\"word\"))\ndf_words.groupBy(\"word\").count().orderBy(desc(\"count\")).show(10)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "+------+-----+\n|  word|count|\n+------+-----+\n|  plus| 1564|\n| cette|  892|\n|   dun|  788|\n|  cest|  770|\n| faire|  610|\n|  code|  604|\n|  dune|  584|\n|projet|  571|\n|  bien|  570|\n|   tre|  568|\n+------+-----+\nonly showing top 10 rows\n\nimport org.apache.spark.sql.functions.{explode, desc}\ndf_words: org.apache.spark.sql.DataFrame = [word: string]\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 14
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "> You should observe that even with a descent tokenizing, the most used words are still not very usefull to characterize the articles."
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### (Bonus) Using the NGram Transformer, find the most used sequences of 2 consecutive words in the corpus\n\n> Hint: Use the [ngram](https://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.ml.feature.NGram) transformer with n=2 and inputCol=\"tokens\""
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.ml.feature.NGram\n\nval bigram = new NGram()\n  .setN(2)\n  .setInputCol(\"tokens\")\n  .setOutputCol(\"bigrams\")\nval df_bigram = bigram.transform(df_tokens)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "import org.apache.spark.ml.feature.NGram\nbigram: org.apache.spark.ml.feature.NGram = ngram_3f6fd5fb2795\ndf_bigram: org.apache.spark.sql.DataFrame = [title: string, category: string, content: string, tokens: array<string>, bigrams: array<string>]\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "<div class=\"df-canvas\">\n      <script data-this=\"{&quot;dataId&quot;:&quot;anon09bc8a4701dc44f0cbcdf584ec5f47d1&quot;,&quot;partitionIndexId&quot;:&quot;anon0d0a1316fd7fe1832ca99574b30dc367&quot;,&quot;numPartitions&quot;:14,&quot;dfSchema&quot;:{&quot;type&quot;:&quot;struct&quot;,&quot;fields&quot;:[{&quot;name&quot;:&quot;title&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;category&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;content&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;tokens&quot;,&quot;type&quot;:{&quot;type&quot;:&quot;array&quot;,&quot;elementType&quot;:&quot;string&quot;,&quot;containsNull&quot;:true},&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;bigrams&quot;,&quot;type&quot;:{&quot;type&quot;:&quot;array&quot;,&quot;elementType&quot;:&quot;string&quot;,&quot;containsNull&quot;:false},&quot;nullable&quot;:true,&quot;metadata&quot;:{}}]}}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(['../javascripts/notebook/dataframe','../javascripts/notebook/consoleDir'], \n      function(dataframe, extension) {\n        dataframe.call(data, this, extension);\n      }\n    );/*]]>*/</script>\n      <link rel=\"stylesheet\" href=\"/assets/stylesheets/ipython/css/dataframe.css\" type=\"text/css\"/>\n    </div>"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 15
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "df_bigram.show()",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "+--------------------+----------------+--------------------+--------------------+--------------------+\n|               title|        category|             content|              tokens|             bigrams|\n+--------------------+----------------+--------------------+--------------------+--------------------+\n|2014-01-08-crafts...|           Craft|  Pour coder tous...|[coder, jours, pl...|[coder jours, jou...|\n|2014-01-10-androi...|   AndroidMobile|  En tant que d?v...|[tant, dveloppeur...|[tant dveloppeur,...|\n|2014-01-13-separe...|           Craft|  Lors de nos d?v...|[lors, dveloppeme...|[lors dveloppemen...|\n|2014-01-14-xebia-...|          Divers|  Xebia aura le p...|[xebia, plaisir, ...|[xebia plaisir, p...|\n|2014-01-15-crafts...|           Craft|  La pratique des...|[pratique, tests,...|[pratique tests, ...|\n|2014-01-17-fireba...|       BackFront|     D?velopper u...|[dvelopper, appli...|[dvelopper applic...|\n|2014-01-17-les-di...|           Agile|  Ce petit m?mo e...|[petit, mmo, dest...|[petit mmo, mmo d...|\n|2014-01-20-puppet...|          DevOps|   Premier ?pisod...|[premier, pisode,...|[premier pisode, ...|\n|2014-01-21-tech-e...|    DevOpsEvents|   Une applicatio...|[application, bie...|[application bien...|\n|2014-01-22-ceylon...|          Divers|  Ceylon, le nouv...|[ceylon, nouveau,...|[ceylon nouveau, ...|\n|2014-01-23-lancem...|          Divers|  Xebia est fier ...|[xebia, fier, dan...|[xebia fier, fier...|\n|2014-01-24-les-be...|           Agile|  Quand il s?agit...|[sagit, dadresser...|[sagit dadresser,...|\n|2014-01-27-agilee...|          Divers|   L?approche Lea...|[lapproche, lean,...|[lapproche lean, ...|\n|2014-01-27-retour...|           Agile|  Le 21 Janvier 2...|[janvier, lieu, p...|[janvier lieu, li...|\n|2014-01-28-screen...|           Craft|  Voici une vid?o...|[voici, vido, min...|[voici vido, vido...|\n|2014-01-31-il-eta...|           Agile|    C?est bien vo...|[cest, bien, kanb...|[cest bien, bien ...|\n|2014-02-06-xebia-...|          Divers|  Chers lecteurs,...|[chers, lecteurs,...|[chers lecteurs, ...|\n|2014-02-11-certif...|          Divers|  Xebia France a ...|[xebia, france, p...|[xebia france, fr...|\n|2014-02-12-le-min...|          Divers|   L?agilit? fait...|[lagilit, partie,...|[lagilit partie, ...|\n|2014-02-14-commun...|AndroidiOSMobile|  D?ann?e en ann?...|[danne, anne, exi...|[danne anne, anne...|\n+--------------------+----------------+--------------------+--------------------+--------------------+\nonly showing top 20 rows\n\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 16
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val df_words = df_bigram.select(explode(df_bigram(\"bigrams\")).alias(\"bigram\"))\ndf_words.groupBy(\"bigram\").count().orderBy(desc(\"count\")).show(10)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "+--------------------+-----+\n|              bigram|count|\n+--------------------+-----+\n|         cet article|  144|\n|          mise place|   92|\n|        mettre place|   88|\n|    machine learning|   83|\n|             col col|   77|\n|software craftsma...|   70|\n|          chez xebia|   64|\n|           plus plus|   63|\n|        public class|   61|\n|         public void|   60|\n+--------------------+-----+\nonly showing top 10 rows\n\ndf_words: org.apache.spark.sql.DataFrame = [bigram: string]\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 17
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "> You should see some combinations with interpretable meanings"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "## 3 - Word2Vec\n----"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "Now that we have tokens, we can use them in some algorithms to extract useful features from them. One algorithm that we can use is [Word2Vec](https://spark.apache.org/docs/latest/ml-features.html#word2vec), which has an implementation in Sparl ML."
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.ml.feature.Word2Vec",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "import org.apache.spark.ml.feature.Word2Vec\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 18
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "### Training model"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Instanciate a new Word2Vec object with the following settings\n- inputCol: \"tokens\"\n- outputCol: \"w2c_features\"\n- vectorSize: 50\n- minCount: 10\n- maxIter: 30"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val word2Vec = new Word2Vec()\n  .setInputCol(\"tokens\")\n  .setOutputCol(\"features\")\n  .setVectorSize(50)\n  .setMinCount(10)\n  .setMaxIter(50)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "word2Vec: org.apache.spark.ml.feature.Word2Vec = w2v_b2e2a89706a4\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "w2v_b2e2a89706a4"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 108
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Train a model on the `df_tokens` DataFrame using the  `fit` method of your word2Vec object\n\n> This might take a few minutes to run depending on the parameters you chose\n\n> You can try different parameters from the ones proposed, but avoid providing values that are too high when you don't work on a cluster"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val word2Vec_model = word2Vec.fit(df_tokens)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "word2Vec_model: org.apache.spark.ml.feature.Word2VecModel = w2v_b2e2a89706a4\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "w2v_b2e2a89706a4"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 109
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "We now have on our hands a trained Word2Vec model that we can use and query.\n\n##### Check how the learning phase went by finding synonyms of a few words of your choice\n\n> Hint 1: Use the `findSynonyms(word, num_synonyms)` method called on the learned model\n\n> Hint 2: The result of that function is a DataFrame. Use the show method on it to print the results"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "word2Vec_model.findSynonyms(\"data\", 10).show()",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "+-----------+------------------+\n|       word|        similarity|\n+-----------+------------------+\n|        big|1.5178941097292347|\n| scientists|1.4826846055747467|\n|      spark|1.4600915945811375|\n|     pandas| 1.303722769313908|\n|    science|1.2967098759436735|\n|scikitlearn|1.2781017326075303|\n|     donnes|1.2601538931048262|\n| dataframes|1.2520891895538007|\n|        the|1.2281152977894239|\n|  dataframe|1.2133118901194078|\n+-----------+------------------+\n\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 111
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "Word2Vec seems to do a good job finding synonyms. Now let's look if we can find some associations like `king - man + woman -> queen`.\n\n##### Write a function findNearestWord(model, vectors_rdd, king_word, man_word, woman_word) which finds the word in the corpus which is nearest to the word of coordinates `king_word - man_word + woman_word`\n\n> Hint 1: `model` is your Word2Vec model\n\n> Hint 2: `vectors_rdd` is the RDD that comes from the getVectors() method of a Word2Vec model\n\n> Hint 3: The function may run the following actions\n- Find the `vector` (second element of the rdd) associated to the `king_word` in vectors_df\n- Do the same for `man_word` and `woman_word`\n- Use the findSynonyms function of the model with the vector `king_word - man_word + woman_word` as argument"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.sql.Row\nimport org.apache.spark.mllib.linalg.Vector\n\nval vectors_df = word2Vec_model.getVectors\n\nval vectors_rdd = vectors_df.rdd.map {\n  case Row(word: String, vector: Vector) =>\n    (word, vector.toArray)\n}",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "import org.apache.spark.sql.Row\nimport org.apache.spark.mllib.linalg.Vector\nvectors_df: org.apache.spark.sql.DataFrame = [word: string, vector: vector]\nvectors_rdd: org.apache.spark.rdd.RDD[(String, Array[Double])] = MapPartitionsRDD[907] at map at <console>:83\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "MapPartitionsRDD[907] at map at &lt;console&gt;:83"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 112
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "import breeze.linalg.DenseVector\nimport org.apache.spark.rdd.RDD\nimport org.apache.spark.ml.feature.Word2VecModel\n\ndef findNearestWord(model: Word2VecModel, vectors_rdd: RDD[(String, Array[Double])], \n                    king_word: String, man_word: String, woman_word: String) = {\n  val vect_king_word = vectors_rdd.filter(x => x._1 == king_word).first()._2\n  val vect_man_word = vectors_rdd.filter(x => x._1 == man_word).first()._2\n  val vect_woman_word = vectors_rdd.filter(x => x._1 == woman_word).first()._2\n  model.findSynonyms(Vectors.dense((DenseVector(vect_king_word) - \n                                    DenseVector(vect_man_word) + \n                                    DenseVector(vect_woman_word)).toArray), 3).show()\n}",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "import breeze.linalg.DenseVector\nimport org.apache.spark.rdd.RDD\nimport org.apache.spark.ml.feature.Word2VecModel\nfindNearestWord: (model: org.apache.spark.ml.feature.Word2VecModel, vectors_rdd: org.apache.spark.rdd.RDD[(String, Array[Double])], king_word: String, man_word: String, woman_word: String)Unit\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 113
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "// Test your function\nfindNearestWord(word2Vec_model, vectors_rdd, \"python\", \"pandas\", \"dataframe\")",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "+------+------------------+\n|  word|        similarity|\n+------+------------------+\n|filter|1.3946181835001497|\n|python|1.3534825663799548|\n| ordre|1.3163835265008406|\n+------+------------------+\n\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 114
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Using the `transform()` method of the word2Vec_model, add a new column to the df_tokens DataFrame"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val df_features = word2Vec_model.transform(df_tokens)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "df_features: org.apache.spark.sql.DataFrame = [title: string, category: string, content: string, tokens: array<string>, features: vector]\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "<div class=\"df-canvas\">\n      <script data-this=\"{&quot;dataId&quot;:&quot;anon4aa942c6b786f6d3c147008071da11d6&quot;,&quot;partitionIndexId&quot;:&quot;anon92247475187648a185302a02c2e41f36&quot;,&quot;numPartitions&quot;:14,&quot;dfSchema&quot;:{&quot;type&quot;:&quot;struct&quot;,&quot;fields&quot;:[{&quot;name&quot;:&quot;title&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;category&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;content&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;tokens&quot;,&quot;type&quot;:{&quot;type&quot;:&quot;array&quot;,&quot;elementType&quot;:&quot;string&quot;,&quot;containsNull&quot;:true},&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;features&quot;,&quot;type&quot;:{&quot;type&quot;:&quot;udt&quot;,&quot;class&quot;:&quot;org.apache.spark.mllib.linalg.VectorUDT&quot;,&quot;pyClass&quot;:&quot;pyspark.mllib.linalg.VectorUDT&quot;,&quot;sqlType&quot;:{&quot;type&quot;:&quot;struct&quot;,&quot;fields&quot;:[{&quot;name&quot;:&quot;type&quot;,&quot;type&quot;:&quot;byte&quot;,&quot;nullable&quot;:false,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;size&quot;,&quot;type&quot;:&quot;integer&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;indices&quot;,&quot;type&quot;:{&quot;type&quot;:&quot;array&quot;,&quot;elementType&quot;:&quot;integer&quot;,&quot;containsNull&quot;:false},&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;values&quot;,&quot;type&quot;:{&quot;type&quot;:&quot;array&quot;,&quot;elementType&quot;:&quot;double&quot;,&quot;containsNull&quot;:false},&quot;nullable&quot;:true,&quot;metadata&quot;:{}}]}},&quot;nullable&quot;:true,&quot;metadata&quot;:{}}]}}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(['../javascripts/notebook/dataframe','../javascripts/notebook/consoleDir'], \n      function(dataframe, extension) {\n        dataframe.call(data, this, extension);\n      }\n    );/*]]>*/</script>\n      <link rel=\"stylesheet\" href=\"/assets/stylesheets/ipython/css/dataframe.css\" type=\"text/css\"/>\n    </div>"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 115
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "df_features.show(3)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "+--------------------+-------------+--------------------+--------------------+--------------------+\n|               title|     category|             content|              tokens|            features|\n+--------------------+-------------+--------------------+--------------------+--------------------+\n|2014-01-08-crafts...|        Craft|  Pour coder tous...|[coder, jours, pl...|[0.13299263012450...|\n|2014-01-10-androi...|AndroidMobile|  En tant que d?v...|[tant, dveloppeur...|[0.15127366873182...|\n|2014-01-13-separe...|        Craft|  Lors de nos d?v...|[lors, dveloppeme...|[0.01077368015117...|\n+--------------------+-------------+--------------------+--------------------+--------------------+\nonly showing top 3 rows\n\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 116
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "## 4 - KMeans\n----"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "In this task, we would like to group the articles into clusters in which they share similar topics. \n\nFor this, we will be using the KMeans algorithm on our corpus. As KMeans needs numerical features to run correctly, we will use the `features` column of our df_features DataFrame as input."
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.ml.clustering.KMeans",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "import org.apache.spark.ml.clustering.KMeans\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 117
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Instanciate a new KMeans object with the following settings\n- k: an integer of your choice\n- maxIter: 30\n- featuresCol: \"features\"\n- outputCol: \"cluster\""
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val kmeans = new KMeans()\n  .setK(15)\n  .setMaxIter(50)\n  .setFeaturesCol(\"features\")\n  .setPredictionCol(\"cluster\")",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "kmeans: org.apache.spark.ml.clustering.KMeans = kmeans_c94687c67739\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "kmeans_c94687c67739"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 123
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Train a model on the `df_features` DataFrame using the `fit` method of your kmeans object\n\n> This might take a few minutes to run depending on the parameters you chose"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val kmeans_model = kmeans.fit(df_features)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "kmeans_model: org.apache.spark.ml.clustering.KMeansModel = kmeans_c94687c67739\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "kmeans_c94687c67739"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 124
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Using the `transform()` method of the kmeans_model, add a new column to the df_features DataFrame"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val df_clusters = kmeans_model.transform(df_features)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "df_clusters: org.apache.spark.sql.DataFrame = [title: string, category: string, content: string, tokens: array<string>, features: vector, cluster: int]\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "<div class=\"df-canvas\">\n      <script data-this=\"{&quot;dataId&quot;:&quot;anon910c99fe0fce263b1cc12dd5fe49bc0c&quot;,&quot;partitionIndexId&quot;:&quot;anon141f657f46cac6b7a244d4be071c1e2f&quot;,&quot;numPartitions&quot;:14,&quot;dfSchema&quot;:{&quot;type&quot;:&quot;struct&quot;,&quot;fields&quot;:[{&quot;name&quot;:&quot;title&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;category&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;content&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;tokens&quot;,&quot;type&quot;:{&quot;type&quot;:&quot;array&quot;,&quot;elementType&quot;:&quot;string&quot;,&quot;containsNull&quot;:true},&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;features&quot;,&quot;type&quot;:{&quot;type&quot;:&quot;udt&quot;,&quot;class&quot;:&quot;org.apache.spark.mllib.linalg.VectorUDT&quot;,&quot;pyClass&quot;:&quot;pyspark.mllib.linalg.VectorUDT&quot;,&quot;sqlType&quot;:{&quot;type&quot;:&quot;struct&quot;,&quot;fields&quot;:[{&quot;name&quot;:&quot;type&quot;,&quot;type&quot;:&quot;byte&quot;,&quot;nullable&quot;:false,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;size&quot;,&quot;type&quot;:&quot;integer&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;indices&quot;,&quot;type&quot;:{&quot;type&quot;:&quot;array&quot;,&quot;elementType&quot;:&quot;integer&quot;,&quot;containsNull&quot;:false},&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;values&quot;,&quot;type&quot;:{&quot;type&quot;:&quot;array&quot;,&quot;elementType&quot;:&quot;double&quot;,&quot;containsNull&quot;:false},&quot;nullable&quot;:true,&quot;metadata&quot;:{}}]}},&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;cluster&quot;,&quot;type&quot;:&quot;integer&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}}]}}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(['../javascripts/notebook/dataframe','../javascripts/notebook/consoleDir'], \n      function(dataframe, extension) {\n        dataframe.call(data, this, extension);\n      }\n    );/*]]>*/</script>\n      <link rel=\"stylesheet\" href=\"/assets/stylesheets/ipython/css/dataframe.css\" type=\"text/css\"/>\n    </div>"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 125
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "df_clusters.show(10)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "+--------------------+-------------+--------------------+--------------------+--------------------+-------+\n|               title|     category|             content|              tokens|            features|cluster|\n+--------------------+-------------+--------------------+--------------------+--------------------+-------+\n|2014-01-08-crafts...|        Craft|  Pour coder tous...|[coder, jours, pl...|[0.13299263012450...|      1|\n|2014-01-10-androi...|AndroidMobile|  En tant que d?v...|[tant, dveloppeur...|[0.15127366873182...|      1|\n|2014-01-13-separe...|        Craft|  Lors de nos d?v...|[lors, dveloppeme...|[0.01077368015117...|     10|\n|2014-01-14-xebia-...|       Divers|  Xebia aura le p...|[xebia, plaisir, ...|[-0.1197805456329...|     13|\n|2014-01-15-crafts...|        Craft|  La pratique des...|[pratique, tests,...|[0.01053014042429...|      1|\n|2014-01-17-fireba...|    BackFront|     D?velopper u...|[dvelopper, appli...|[0.04010864982680...|      1|\n|2014-01-17-les-di...|        Agile|  Ce petit m?mo e...|[petit, mmo, dest...|[-0.0480439797557...|      0|\n|2014-01-20-puppet...|       DevOps|   Premier ?pisod...|[premier, pisode,...|[0.07695613750615...|     10|\n|2014-01-21-tech-e...| DevOpsEvents|   Une applicatio...|[application, bie...|[-0.1066852227086...|      9|\n|2014-01-22-ceylon...|       Divers|  Ceylon, le nouv...|[ceylon, nouveau,...|[-0.0599770906785...|      9|\n+--------------------+-------------+--------------------+--------------------+--------------------+-------+\nonly showing top 10 rows\n\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 126
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "We would like to know if the cluster centers represent meaningful topics. To do that, we will use the word2Vec_model to find the synonyms of the cluster centers in our corpus of words.\n\n##### Write a function findSynonymsClusterCenter(word2Vec_model, kmeans_model , cluster_id) which finds the synonyms of the cluster center of your choice\n\n> Hint 1: `word2Vec_model` is your Word2Vec model, on which you can call the findSynonyms method\n\n> Hint 2: `kmeans_model` is your KMeans model, on which you can call the clusterCenters method with the cluster_id argument"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "import breeze.linalg.DenseVector\nimport org.apache.spark.rdd.RDD\nimport org.apache.spark.ml.feature.{Word2VecModel, KMeansModel}\n\ndef findNearestWord(word2Vec_model: Word2VecModel, kmeans_model: KMeansModel, cluster_id: Int) = {\n  word2Vec_model.findSynonyms(kmeans_model.clusterCenters(cluster_id), 10).show()\n}",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "def findNearestWord(word2Vec_model, kmeans_model, 0)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "+----------+------------------+\n|      word|        similarity|\n+----------+------------------+\n| formation| 0.895037986303588|\n|formations|0.8006392353280659|\n|partenaire|0.7761946474327668|\n|     anime|0.7335938562722845|\n|     xebia| 0.712091321441003|\n|     lanne|0.6934192773902055|\n|       mai|0.6826249470354561|\n|    benoit|0.6771683738649621|\n| septembre|0.6650262104880678|\n|    apache|0.6459688004848343|\n|    meetup|0.6365246210785628|\n|     avril|0.6336507367679163|\n|    julien|0.6321243587901799|\n|     rigau| 0.630993543875116|\n+----------+------------------+\n\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 142
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.sql.DataFrame\n\ndef titlesInCluster(df: DataFrame, cluster_id: Int) = {\n    var df_cluster = df.filter(df(\"cluster\") === cluster_id)\n    var cluster_size = df_cluster.count()\n    println(\"Cluster Size : \" + cluster_size.toString)\n    println(\"Cluster Content : \")\n    df_cluster.select(\"title\").collect().foreach(title_row => println(\"\\t\" + title_row(0)))\n}",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "import org.apache.spark.sql.DataFrame\ntitlesInCluster: (df: org.apache.spark.sql.DataFrame, cluster_id: Int)Unit\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 128
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "titlesInCluster(df_clusters, 6)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "Cluster Size : 3\nCluster Content : \n\t2014-02-28-xebia-elu-partenaire-formation-emea-de-lannee-2013-par-cloudera\n\t2015-04-21-xebia-elu-partenaire-formation-emea-de-lannee-2014-par-cloudera-encore\n\t2015-07-22-decouvrez-nos-formations-de-la-rentree-2\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 141
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "def mostRepresentedCategoriesInCluster(df: DataFrame, cluster_id: Int) = {\n    var df_cluster = df.filter(df(\"cluster\") === cluster_id)\n    df_cluster.groupBy(\"category\").count().orderBy(desc(\"count\")).show(5)\n}",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "mostRepresentedCategoriesInCluster: (df: org.apache.spark.sql.DataFrame, cluster_id: Int)Unit\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 130
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "mostRepresentedCategoriesInCluster(df_clusters, 9)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "+-----------+-----+\n|   category|count|\n+-----------+-----+\n|     Divers|   10|\n|EventsFront|    4|\n|     Events|    4|\n|     DevOps|    3|\n|       Data|    3|\n+-----------+-----+\nonly showing top 5 rows\n\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 144
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### (Bonus) Apply a KMeans to the words to see which words are clustered together"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val kmeans = new KMeans()\n  .setK(5)\n  .setMaxIter(50)\n  .setFeaturesCol(\"vector\")\n  .setPredictionCol(\"cluster\")",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "kmeans: org.apache.spark.ml.clustering.KMeans = kmeans_352d060e1553\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "kmeans_352d060e1553"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 97
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val kmeans_model = kmeans.fit(word2Vec_model.getVectors)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "kmeans_model: org.apache.spark.ml.clustering.KMeansModel = kmeans_352d060e1553\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "kmeans_352d060e1553"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 98
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val words_clusters_df = kmeans_model.transform(word2Vec_model.getVectors)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "words_clusters_df: org.apache.spark.sql.DataFrame = [word: string, vector: vector, cluster: int]\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "<div class=\"df-canvas\">\n      <script data-this=\"{&quot;dataId&quot;:&quot;anonffee827b5982e4dd03cc6926bdffdbdb&quot;,&quot;partitionIndexId&quot;:&quot;anon921575228d9b5e7d5ff97c10ae4cc5bd&quot;,&quot;numPartitions&quot;:116,&quot;dfSchema&quot;:{&quot;type&quot;:&quot;struct&quot;,&quot;fields&quot;:[{&quot;name&quot;:&quot;word&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;vector&quot;,&quot;type&quot;:{&quot;type&quot;:&quot;udt&quot;,&quot;class&quot;:&quot;org.apache.spark.mllib.linalg.VectorUDT&quot;,&quot;pyClass&quot;:&quot;pyspark.mllib.linalg.VectorUDT&quot;,&quot;sqlType&quot;:{&quot;type&quot;:&quot;struct&quot;,&quot;fields&quot;:[{&quot;name&quot;:&quot;type&quot;,&quot;type&quot;:&quot;byte&quot;,&quot;nullable&quot;:false,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;size&quot;,&quot;type&quot;:&quot;integer&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;indices&quot;,&quot;type&quot;:{&quot;type&quot;:&quot;array&quot;,&quot;elementType&quot;:&quot;integer&quot;,&quot;containsNull&quot;:false},&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;values&quot;,&quot;type&quot;:{&quot;type&quot;:&quot;array&quot;,&quot;elementType&quot;:&quot;double&quot;,&quot;containsNull&quot;:false},&quot;nullable&quot;:true,&quot;metadata&quot;:{}}]}},&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;cluster&quot;,&quot;type&quot;:&quot;integer&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}}]}}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(['../javascripts/notebook/dataframe','../javascripts/notebook/consoleDir'], \n      function(dataframe, extension) {\n        dataframe.call(data, this, extension);\n      }\n    );/*]]>*/</script>\n      <link rel=\"stylesheet\" href=\"/assets/stylesheets/ipython/css/dataframe.css\" type=\"text/css\"/>\n    </div>"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 100
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "words_clusters_df.show(4)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "+--------+--------------------+-------+\n|    word|              vector|cluster|\n+--------+--------------------+-------+\n|     dns|[0.68391507863998...|      2|\n|rfrences|[-0.2077603191137...|      2|\n| speaker|[-0.7304663658142...|      3|\n|    mise|[0.36344924569129...|      3|\n+--------+--------------------+-------+\nonly showing top 4 rows\n\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 101
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "words_clusters_df.filter(words_clusters_df(\"cluster\") === 4).show()",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "+--------------------+--------------------+-------+\n|                word|              vector|cluster|\n+--------------------+--------------------+-------+\n|              static|[-0.8852177262306...|      4|\n|               false|[-0.6326498985290...|      4|\n|zookabuttonprototype|[-1.3309578895568...|      4|\n|            nullable|[-1.0071526765823...|      4|\n|                ltbr|[-0.7099978327751...|      4|\n|   checkboxwithlabel|[-1.5557551383972...|      4|\n|      todorepository|[-1.3521533012390...|      4|\n|         convertview|[0.12814988195896...|      4|\n|           protected|[-0.9637368321418...|      4|\n|        githubmember|[-0.5129970908164...|      4|\n|               given|[0.44576710462570...|      4|\n|             private|[-0.7660616636276...|      4|\n|               float|[0.33419457077980...|      4|\n|              return|[-0.0261875446885...|      4|\n|           firstname|[0.08844032138586...|      4|\n|             context|[-0.6615605950355...|      4|\n|                void|[-0.6636575460433...|      4|\n|            override|[-0.7460490465164...|      4|\n|                else|[-0.4388619065284...|      4|\n|               items|[0.08646394312381...|      4|\n+--------------------+--------------------+-------+\nonly showing top 20 rows\n\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 107
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "word2Vec_model.findSynonyms(kmeans_model.clusterCenters(14), 10).show()",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "java.lang.ArrayIndexOutOfBoundsException: 14\n  ... 33 elided\n"
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### (Bonus) Identify clusters of words that seem unuseful to you and add the corresponding words to the stopwords list. Then tokenize the texts with this new list, transform the resulting DataFrame with the Word2Vec model and run a KMeans. Does it help improving the clusters interpretation ?"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "markdown",
+    "source" : "## 5 - Latent Dirichlet Allocation\n----"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "We are now going to try another algorithm to infer topics from documents, which is Latent Dirichlet Allocation. First, we need to map each word to an index and filter undesirable words. We can then train a LDA model to find those topics."
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.ml.feature.CountVectorizer",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "import org.apache.spark.ml.feature.CountVectorizer\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 13
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Instanciate a new [CountVectorizer](https://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.ml.feature.CountVectorizer) object with the following settings\n- minTF: 5.0\n- minDF: 15.0\n- featuresCol: \"tokens\"\n- outputCol: \"features\""
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val cv = new CountVectorizer()\n  .setMinTF(5)\n  .setMinDF(15)\n  .setInputCol(\"tokens\")\n  .setOutputCol(\"features\")",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "cv: org.apache.spark.ml.feature.CountVectorizer = cntVec_a3d6fec500fb\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "cntVec_a3d6fec500fb"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 16
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Fit the model on the `df_tokens` DataFrame, and then add a new column with the features"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val cv_model = cv.fit(df_tokens)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "cv_model: org.apache.spark.ml.feature.CountVectorizerModel = cntVec_a3d6fec500fb\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "cntVec_a3d6fec500fb"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 17
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val df_features = cv_model.transform(df_tokens)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "df_features: org.apache.spark.sql.DataFrame = [title: string, category: string, content: string, tokens: array<string>, features: vector]\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "<div class=\"df-canvas\">\n      <script data-this=\"{&quot;dataId&quot;:&quot;anon810bc45d3e0536a0ed74934813a82514&quot;,&quot;partitionIndexId&quot;:&quot;anon23d3548770aa9e73ac05a038cbe86b38&quot;,&quot;numPartitions&quot;:14,&quot;dfSchema&quot;:{&quot;type&quot;:&quot;struct&quot;,&quot;fields&quot;:[{&quot;name&quot;:&quot;title&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;category&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;content&quot;,&quot;type&quot;:&quot;string&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;tokens&quot;,&quot;type&quot;:{&quot;type&quot;:&quot;array&quot;,&quot;elementType&quot;:&quot;string&quot;,&quot;containsNull&quot;:true},&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;features&quot;,&quot;type&quot;:{&quot;type&quot;:&quot;udt&quot;,&quot;class&quot;:&quot;org.apache.spark.mllib.linalg.VectorUDT&quot;,&quot;pyClass&quot;:&quot;pyspark.mllib.linalg.VectorUDT&quot;,&quot;sqlType&quot;:{&quot;type&quot;:&quot;struct&quot;,&quot;fields&quot;:[{&quot;name&quot;:&quot;type&quot;,&quot;type&quot;:&quot;byte&quot;,&quot;nullable&quot;:false,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;size&quot;,&quot;type&quot;:&quot;integer&quot;,&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;indices&quot;,&quot;type&quot;:{&quot;type&quot;:&quot;array&quot;,&quot;elementType&quot;:&quot;integer&quot;,&quot;containsNull&quot;:false},&quot;nullable&quot;:true,&quot;metadata&quot;:{}},{&quot;name&quot;:&quot;values&quot;,&quot;type&quot;:{&quot;type&quot;:&quot;array&quot;,&quot;elementType&quot;:&quot;double&quot;,&quot;containsNull&quot;:false},&quot;nullable&quot;:true,&quot;metadata&quot;:{}}]}},&quot;nullable&quot;:true,&quot;metadata&quot;:{}}]}}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(['../javascripts/notebook/dataframe','../javascripts/notebook/consoleDir'], \n      function(dataframe, extension) {\n        dataframe.call(data, this, extension);\n      }\n    );/*]]>*/</script>\n      <link rel=\"stylesheet\" href=\"/assets/stylesheets/ipython/css/dataframe.css\" type=\"text/css\"/>\n    </div>"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 18
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "df_features.show(5)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "+--------------------+-------------+--------------------+--------------------+--------------------+\n|               title|     category|             content|              tokens|            features|\n+--------------------+-------------+--------------------+--------------------+--------------------+\n|2014-01-08-crafts...|        Craft|  Pour coder tous...|[coder, jours, pl...|(1329,[0,1,3,4,5,...|\n|2014-01-10-androi...|AndroidMobile|  En tant que d?v...|[tant, dveloppeur...|(1329,[0,1,3,4,5,...|\n|2014-01-13-separe...|        Craft|  Lors de nos d?v...|[lors, dveloppeme...|(1329,[0,7,14,15,...|\n|2014-01-14-xebia-...|       Divers|  Xebia aura le p...|[xebia, plaisir, ...|(1329,[44,101],[1...|\n|2014-01-15-crafts...|        Craft|  La pratique des...|[pratique, tests,...|(1329,[0,5,10,14,...|\n+--------------------+-------------+--------------------+--------------------+--------------------+\nonly showing top 5 rows\n\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 19
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "cv_model.vocabulary",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "res8: Array[String] = Array(plus, cette, dun, cest, faire, code, dune, projet, bien, tre, permet, donnes, mme, trs, tests, exemple, the, nest, xebia, faut, test, version, application, entre, cas, ainsi, temps, cet, place, crer, service, afin, type, dveloppement, mthode, fichier, public, systme, possible, galement, quil, lquipe, plusieurs, utiliser, kanban, article, quelques, lapplication, toutes, quipes, simple, web, allons, java, dveloppeurs, mise, lors, mettre, api, vers, manire, agile, google, fonction, non, nombre, prsentation, lon, serveur, partie, produit, pouvez, problme, travail, voir, premier, besoin, classe, user, ensuite, souvent, autres, tait, propose, puis, services, outils, tant, permettant, data, import, docker, jour, return, base, production, beaucoup, dont, premire, qua..."
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "<div class=\"container-fluid\"><div><div class=\"col-md-12\"><div>\n      <script data-this=\"{&quot;dataId&quot;:&quot;anond857324a1c8299bd517a7220864dbf8b&quot;,&quot;dataInit&quot;:[{&quot;string value&quot;:&quot;plus&quot;},{&quot;string value&quot;:&quot;cette&quot;},{&quot;string value&quot;:&quot;dun&quot;},{&quot;string value&quot;:&quot;cest&quot;},{&quot;string value&quot;:&quot;faire&quot;},{&quot;string value&quot;:&quot;code&quot;},{&quot;string value&quot;:&quot;dune&quot;},{&quot;string value&quot;:&quot;projet&quot;},{&quot;string value&quot;:&quot;bien&quot;},{&quot;string value&quot;:&quot;tre&quot;},{&quot;string value&quot;:&quot;permet&quot;},{&quot;string value&quot;:&quot;donnes&quot;},{&quot;string value&quot;:&quot;mme&quot;},{&quot;string value&quot;:&quot;trs&quot;},{&quot;string value&quot;:&quot;tests&quot;},{&quot;string value&quot;:&quot;exemple&quot;},{&quot;string value&quot;:&quot;the&quot;},{&quot;string value&quot;:&quot;nest&quot;},{&quot;string value&quot;:&quot;xebia&quot;},{&quot;string value&quot;:&quot;faut&quot;},{&quot;string value&quot;:&quot;test&quot;},{&quot;string value&quot;:&quot;version&quot;},{&quot;string value&quot;:&quot;application&quot;},{&quot;string value&quot;:&quot;entre&quot;},{&quot;string value&quot;:&quot;cas&quot;}],&quot;genId&quot;:&quot;1571632765&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(['../javascripts/notebook/playground','../javascripts/notebook/magic/tableChart'], \n      function(playground, _magictableChart) {\n        // data ==> data-this (in observable.js's scopedEval) ==> this in JS => { dataId, dataInit, ... }\n        // this ==> scope (in observable.js's scopedEval) ==> this.parentElement ==> div.container below (toHtml)\n\n        playground.call(data,\n                        this\n                        ,\n                        {\n    \"f\": _magictableChart,\n    \"o\": {\"headers\":[\"string value\"],\"width\":600,\"height\":400}\n  }\n  \n                        \n                        \n                      );\n      }\n    );/*]]>*/</script>\n    <div>\n        <label for=\"input-anon0daf60ccca208e361519aa710de4fe74\">\n      Max Points\n    </label><input id=\"input-anon0daf60ccca208e361519aa710de4fe74\" type=\"number\" name=\"input-anon0daf60ccca208e361519aa710de4fe74\" data-bind=\"textInput: value, fireChange: true, valueUpdate: 'input'\">\n      <script data-selector=\"#input-anon0daf60ccca208e361519aa710de4fe74\" data-this=\"{&quot;valueId&quot;:&quot;anon0daf60ccca208e361519aa710de4fe74&quot;,&quot;valueInit&quot;:25}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(\n ['observable', 'knockout'],\n function (Observable, ko) {\n   //console.log(\"-----------\")\n   //console.dir(this);\n   //console.dir(valueId);\n   var obs = Observable.makeObservable(valueId)\n                       .extend({ rateLimit: { //throttle\n                                   timeout: 500,\n                                   method: \"notifyWhenChangesStop\"\n                                 }\n                               }\n                       );\n   ko.applyBindings({\n     value: obs\n   }, this);\n   obs(valueInit);\n }\n)/*]]>*/</script>\n    </input>\n        <p data-bind=\"text: value\"><script data-this=\"{&quot;valueId&quot;:&quot;anon46f7e9eb7b17471e974364d9b2daa95e&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/\nreq(\n['observable', 'knockout'],\nfunction (O, ko) {\n  ko.applyBindings({\n      value: O.makeObservable(valueId)\n    },\n    this\n  );\n});\n        /*]]>*/</script></p> <span style=\"color:red\"><p data-bind=\"text: value\"><script data-this=\"{&quot;valueId&quot;:&quot;anon183eb3b1ee445f69e5d948a53ad00e13&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/\nreq(\n['observable', 'knockout'],\nfunction (O, ko) {\n  ko.applyBindings({\n      value: O.makeObservable(valueId)\n    },\n    this\n  );\n});\n        /*]]>*/</script></p></span>\n        <div>\n        </div>\n      </div></div></div></div></div>"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 20
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "In order to train a LDA model, we need to provide a RDD with an index and a Sparse Vector"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.mllib.clustering.LDA",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "import org.apache.spark.mllib.clustering.LDA\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 21
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.sql.Row\nimport org.apache.spark.mllib.linalg.Vector\n\nval rdd_features = df_features.filter(df_features(\"category\") === \"Data\").select(\"features\").rdd.map{\n  case Row(vector: Vector) =>\n  vector\n}.zipWithIndex.map(_.swap).cache()",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "import org.apache.spark.sql.Row\nimport org.apache.spark.mllib.linalg.Vector\nrdd_features: org.apache.spark.rdd.RDD[(Long, org.apache.spark.mllib.linalg.Vector)] = MapPartitionsRDD[110] at map at <console>:73\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "MapPartitionsRDD[110] at map at &lt;console&gt;:73"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 35
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Instanciate and train new [LDA](https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.clustering.LDA) object with the following settings\n- k: 3\n- maxIterations: 5"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val lda = new LDA().setK(3).setMaxIterations(5)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "lda: org.apache.spark.mllib.clustering.LDA = org.apache.spark.mllib.clustering.LDA@3e68fed0\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "org.apache.spark.mllib.clustering.LDA@3e68fed0"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 36
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "> You can change the parameters of the model, but be careful, the training time can be very long"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val lda_model = lda.run(rdd_features)",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "lda_model: org.apache.spark.mllib.clustering.LDAModel = org.apache.spark.mllib.clustering.DistributedLDAModel@50e47e7c\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "org.apache.spark.mllib.clustering.DistributedLDAModel@50e47e7c"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 37
+    } ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Use the `describeTopics` method of your ldaModel and the `vocabulary` attribute of your cv_model to observe the description in 10 words of each topics"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "val topics = lda_model.describeTopics(10)\nval vocab = cv_model.vocabulary",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "topics: Array[(Array[Int], Array[Double])] = Array((Array(0, 11, 341, 107, 89, 108, 16, 386, 90, 125),Array(0.06781515915421603, 0.05374354464037849, 0.04370788799322568, 0.033511183006944174, 0.030490745829199074, 0.02756212905640493, 0.026786789682732404, 0.025955289313627727, 0.022479806562058176, 0.01963539864975013)), (Array(107, 11, 0, 178, 16, 2, 278, 25, 108, 131),Array(0.0863804924083088, 0.07781881684435375, 0.04273779074407024, 0.03955256918915584, 0.028543541904138593, 0.027344418047444245, 0.021440885202496547, 0.019150458725095156, 0.018714449513591507, 0.018325013092586568)), (Array(11, 90, 250, 13, 0, 89, 108, 288, 12, 9),Array(0.05484402142954166, 0.04910960424890295, 0.04853639197630256, 0.042252614985808165, 0.038458444301594584, 0.033458254488470514, 0.02838562888074..."
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : "<div class=\"container-fluid\"><div><div class=\"col-md-12\"><div>\n      <script data-this=\"{&quot;dataId&quot;:&quot;anonec93197b94da462579a601fa977a1446&quot;,&quot;dataInit&quot;:[{&quot;string value&quot;:&quot;plus&quot;},{&quot;string value&quot;:&quot;cette&quot;},{&quot;string value&quot;:&quot;dun&quot;},{&quot;string value&quot;:&quot;cest&quot;},{&quot;string value&quot;:&quot;faire&quot;},{&quot;string value&quot;:&quot;code&quot;},{&quot;string value&quot;:&quot;dune&quot;},{&quot;string value&quot;:&quot;projet&quot;},{&quot;string value&quot;:&quot;bien&quot;},{&quot;string value&quot;:&quot;tre&quot;},{&quot;string value&quot;:&quot;permet&quot;},{&quot;string value&quot;:&quot;donnes&quot;},{&quot;string value&quot;:&quot;mme&quot;},{&quot;string value&quot;:&quot;trs&quot;},{&quot;string value&quot;:&quot;tests&quot;},{&quot;string value&quot;:&quot;exemple&quot;},{&quot;string value&quot;:&quot;the&quot;},{&quot;string value&quot;:&quot;nest&quot;},{&quot;string value&quot;:&quot;xebia&quot;},{&quot;string value&quot;:&quot;faut&quot;},{&quot;string value&quot;:&quot;test&quot;},{&quot;string value&quot;:&quot;version&quot;},{&quot;string value&quot;:&quot;application&quot;},{&quot;string value&quot;:&quot;entre&quot;},{&quot;string value&quot;:&quot;cas&quot;}],&quot;genId&quot;:&quot;1569943716&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(['../javascripts/notebook/playground','../javascripts/notebook/magic/tableChart'], \n      function(playground, _magictableChart) {\n        // data ==> data-this (in observable.js's scopedEval) ==> this in JS => { dataId, dataInit, ... }\n        // this ==> scope (in observable.js's scopedEval) ==> this.parentElement ==> div.container below (toHtml)\n\n        playground.call(data,\n                        this\n                        ,\n                        {\n    \"f\": _magictableChart,\n    \"o\": {\"headers\":[\"string value\"],\"width\":600,\"height\":400}\n  }\n  \n                        \n                        \n                      );\n      }\n    );/*]]>*/</script>\n    <div>\n        <label for=\"input-anon066aa9d73e10f4d1cca0b403e215db00\">\n      Max Points\n    </label><input id=\"input-anon066aa9d73e10f4d1cca0b403e215db00\" type=\"number\" name=\"input-anon066aa9d73e10f4d1cca0b403e215db00\" data-bind=\"textInput: value, fireChange: true, valueUpdate: 'input'\">\n      <script data-selector=\"#input-anon066aa9d73e10f4d1cca0b403e215db00\" data-this=\"{&quot;valueId&quot;:&quot;anon066aa9d73e10f4d1cca0b403e215db00&quot;,&quot;valueInit&quot;:25}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/req(\n ['observable', 'knockout'],\n function (Observable, ko) {\n   //console.log(\"-----------\")\n   //console.dir(this);\n   //console.dir(valueId);\n   var obs = Observable.makeObservable(valueId)\n                       .extend({ rateLimit: { //throttle\n                                   timeout: 500,\n                                   method: \"notifyWhenChangesStop\"\n                                 }\n                               }\n                       );\n   ko.applyBindings({\n     value: obs\n   }, this);\n   obs(valueInit);\n }\n)/*]]>*/</script>\n    </input>\n        <p data-bind=\"text: value\"><script data-this=\"{&quot;valueId&quot;:&quot;anon1fe450e00361514c7ab896f4ff4606f9&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/\nreq(\n['observable', 'knockout'],\nfunction (O, ko) {\n  ko.applyBindings({\n      value: O.makeObservable(valueId)\n    },\n    this\n  );\n});\n        /*]]>*/</script></p> <span style=\"color:red\"><p data-bind=\"text: value\"><script data-this=\"{&quot;valueId&quot;:&quot;anonf4be0195991b14343da9f29ac9827022&quot;}\" type=\"text/x-scoped-javascript\">/*<![CDATA[*/\nreq(\n['observable', 'knockout'],\nfunction (O, ko) {\n  ko.applyBindings({\n      value: O.makeObservable(valueId)\n    },\n    this\n  );\n});\n        /*]]>*/</script></p></span>\n        <div>\n        </div>\n      </div></div></div></div></div>"
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 82
+    } ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : false
+    },
+    "cell_type" : "code",
+    "source" : "for (topic <- Range(0, 3)) {\n  println(\"Topic \" + topic + \":\")\n  println(\"------\")\n  for (word <- Range(0, 10)) {\n    println(vocab(topics(topic)._1(word)))\n  }\n}",
+    "outputs" : [ {
+      "name" : "stdout",
+      "output_type" : "stream",
+      "text" : "Topic 0:\n------\nplus\ndonnes\nset\nspark\ndata\nmachine\nthe\nfrom\nimport\nmodle\nTopic 1:\n------\nspark\ndonnes\nplus\ntrue\nthe\ndun\nlearning\nainsi\nmachine\nstring\nTopic 2:\n------\ndonnes\nimport\nalgorithmes\ntrs\nplus\ndata\nmachine\npackage\nmme\ntre\n"
+    }, {
+      "metadata" : { },
+      "data" : {
+        "text/html" : ""
+      },
+      "output_type" : "execute_result",
+      "execution_count" : 83
+    } ]
+  } ],
+  "nbformat" : 4
+}
