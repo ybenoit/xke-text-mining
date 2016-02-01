@@ -1,0 +1,692 @@
+{
+  "metadata" : {
+    "name" : "text-mining-exercise",
+    "user_save_timestamp" : "1970-01-01T00:00:00.000Z",
+    "auto_save_timestamp" : "1970-01-01T00:00:00.000Z",
+    "language_info" : {
+      "name" : "scala",
+      "file_extension" : "scala",
+      "codemirror_mode" : "text/x-scala"
+    },
+    "trusted" : true,
+    "customLocalRepo" : null,
+    "customRepos" : null,
+    "customDeps" : null,
+    "customImports" : null,
+    "customArgs" : null,
+    "customSparkConf" : null
+  },
+  "cells" : [ {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "# XKE Text Mining - Exercices\n----\n****"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "This notebook aims at introducing the user to the processing and analysis of text data in Spark with Scala."
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "## Settings\n----"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.sql.SQLContext\nval sqlContext = new SQLContext(sc)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "## 1 - Load data\n----"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "###Text Corpus"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Load the corpus of texts stored in `/opt/docker/notebooks/data/articles_blog/` into a DataFrame\n\n> Hint 1: Texts are stored in directories associated with their year and month of release. To load every texts in one RDD, you can just use `*` instead of a directory name: \n\n`/articles_blog/*/*/*.txt`\n\n> Hint 2: Each file has the following structure: Three information separated by `|`. The resulting DataFrame then must have three columns:\n- title: String\n- category: String\n- content: String\n\n> Hint 3: One way to proceed is to create a case class with the three targeted columns, load the data into a RDD thanks to the [sc.textFile](https://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.SparkContext) function and then map it with the case class. The RDD will then have an associated schema, and you will therefore be able to create a DataFrame directly with the [createDataFrame](https://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.SQLContext) function with only the resulting rdd as argument."
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "case class TextInfo(title: String, category: String, content: String)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val rdd_corpus = (sc.textFile(\"/opt/docker/notebooks/data/articles_blog/*/*/*.txt\")\n                  .map(_.split(\"\\\\|\"))\n                  .map(x => TextInfo(x(0), x(1), x(2))))\nval df_corpus = sqlContext.createDataFrame(rdd_corpus)\ndf_corpus.persist()",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "df_corpus.printSchema()",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "// Run this test to check if you got the right DataFrame size\nassert(df_corpus.count() == 335)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "### Stopwords"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Load the stopwords stored in `/opt/docker/notebooks/data/stopwords_french.txt` in an Array[String]"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val stopwords = <FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "// Run this test to check if you got the right array size\nassert(stopwords.length == 237)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "## 2 - Tokenizer\n----"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "Now that the data is available, it is time to pre-process it before we can use it in algorithms. The first thing to do is to tokenize each text to get an array of tokens (words) that will be used afterwards."
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Create a function tokens: String => Array[String] which transforms a String into an array of tokens. The transformation can perform the following actions:\n\n- Split on spaces (mandatory)\n- Remove punctuation and numbers (can be done with `replaceAll(\"[^a-z\\\\sA-Z]\",\"\")` \n- Convert to lowercase\n- Remove every stopwords\n- Keep only words with length strictly higher than 2"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val tokens: String => Array[String] = <FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "// Test your function\ntokens(\"Hello, World!\")",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Create a Spark UDF (User Defined Function) which uses the previous tokens function\n\n> Hint: Use the [udf](https://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.UserDefinedFunction) function with your previous function as unique argument"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.sql.functions.udf\n\nval tokenizeContent = udf(<FILL IN>)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Add a new column named `tokens` to the df_corpus DataFrame containing the result of the tokenizer UDF used on the `content` column\n\n> Hint 1: Use the [withColumn](https://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.DataFrame) method of the df_corpus DataFrame\n\n> Hint 2: To apply the UDF on a DataFrame column, just do the following: `yourFunction(yourDF(col_name))`"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val df_tokens = df_corpus.withColumn(<FILL IN>)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "// Check if your DataFrame has the right column names and types\ndf_tokens.dtypes",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "df_tokens.show(2)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### What are the 10 most used words in the corpus ?\n\n> Hint 1: Use the [explode](https://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.DataFrame) function to have a DataFrame with one word per line\n\n> Hint 2: You can perform the following operations\n- Use the `select` function and use the `explode` function on the `tokens` column, name it \"word\"\n- Group By the \"word\" column\n- Use the `count()` function to count the number of occurrences of each word\n- Order By the count result, [descending](https://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.Column), and show the 10 first resulting words"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.sql.functions.{explode, desc}\n\nval df_words = df_tokens.select(explode(df_tokens(\"tokens\")).alias(\"word\"))\ndf_words.<FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "> You should observe that even with a descent tokenizing, the most used words are still not very usefull to characterize the articles."
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### (Bonus) Using the NGram Transformer, find the most used sequences of 2 consecutive words in the corpus\n\n> Hint: Use the [ngram](https://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.ml.feature.NGram) transformer with n=2 and inputCol=\"tokens\""
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.ml.feature.NGram\n\nval bigram = <FILL IN>\nval df_bigram = bigram.<FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "df_bigram.show()",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val df_words = df_bigram.select(explode(df_bigram(\"bigrams\")).alias(\"bigram\"))\ndf_words.<FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "> You should see some combinations with interpretable meanings"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "## 3 - Word2Vec\n----"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "Now that we have tokens, we can use them in some algorithms to extract useful features from them. One algorithm that we can use is [Word2Vec](https://spark.apache.org/docs/latest/ml-features.html#word2vec), which has an implementation in Sparl ML."
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.ml.feature.Word2Vec",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "### Training model"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Instanciate a new Word2Vec object with the following settings\n- inputCol: \"tokens\"\n- outputCol: \"w2c_features\"\n- vectorSize: 50\n- minCount: 10\n- maxIter: 30"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val word2Vec = <FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Train a model on the `df_tokens` DataFrame using the  `fit` method of your word2Vec object\n\n> This might take a few minutes to run depending on the parameters you chose\n\n> You can try different parameters from the ones proposed, but avoid providing values that are too high when you don't work on a cluster"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val word2Vec_model = word2Vec.<FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "We now have on our hands a trained Word2Vec model that we can use and query.\n\n##### Check how the learning phase went by finding synonyms of a few words of your choice\n\n> Hint 1: Use the `findSynonyms(word, num_synonyms)` method called on the learned model\n\n> Hint 2: The result of that function is a DataFrame. Use the show method on it to print the results"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "word2Vec_model.<FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "Word2Vec seems to do a good job finding synonyms. Now let's look if we can find some associations like `king - man + woman -> queen`.\n\n##### Write a function findNearestWord(model, vectors_rdd, king_word, man_word, woman_word) which finds the word in the corpus which is nearest to the word of coordinates `king_word - man_word + woman_word`\n\n> Hint 1: `model` is your Word2Vec model\n\n> Hint 2: `vectors_rdd` is the RDD[String, Vector] that comes from the getVectors() method of a Word2Vec model\n\n> Hint 3: The function may run the following actions\n- Find the `vector` (second element of the rdd) associated to the `king_word` in vectors_df\n- Do the same for `man_word` and `woman_word`\n- Use the findSynonyms function of the model with the vector `king_word - man_word + woman_word` as argument"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.sql.Row\nimport org.apache.spark.mllib.linalg.Vector\n\nval vectors_df = word2Vec_model.getVectors\n\nval vectors_rdd = vectors_df.rdd.map {\n  case Row(word: String, vector: Vector) =>\n    (word, vector.toArray)\n}",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "import breeze.linalg.DenseVector\nimport org.apache.spark.rdd.RDD\nimport org.apache.spark.ml.feature.Word2VecModel\n\ndef findNearestWord(model: Word2VecModel, vectors_rdd: RDD[(String, Array[Double])], \n                    king_word: String, man_word: String, woman_word: String) = {\n  val vect_king_word = vectors_rdd.<FILL IN>\n  val vect_man_word = vectors_rdd.<FILL IN>\n  val vect_woman_word = vectors_rdd.<FILL IN>\n  model.findSynonyms(Vectors.dense((DenseVector(vect_king_word) - \n                                    DenseVector(vect_man_word) + \n                                    DenseVector(vect_woman_word)).toArray), 3).show()\n}",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "// Test your function\nfindNearestWord(word2Vec_model, vectors_rdd, \"python\", \"pandas\", \"dataframe\")",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Using the `transform()` method of the word2Vec_model, add a new column to the df_tokens DataFrame"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val df_features = word2Vec_model.<FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "df_features.show(3)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "## 4 - KMeans\n----"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "In this task, we would like to group the articles into clusters in which they share similar topics. \n\nFor this, we will be using the KMeans algorithm on our corpus. As KMeans needs numerical features to run correctly, we will use the `features` column of our df_features DataFrame as input."
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.ml.clustering.KMeans",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Instanciate a new KMeans object with the following settings\n- k: an integer of your choice\n- maxIter: 30\n- featuresCol: \"features\"\n- outputCol: \"cluster\""
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val kmeans = <FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Train a model on the `df_features` DataFrame using the `fit` method of your kmeans object\n\n> This might take a few minutes to run depending on the parameters you chose"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val kmeans_model = kmeans.<FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Using the `transform()` method of the kmeans_model, add a new column to the df_features DataFrame"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val df_clusters = kmeans_model.<FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "df_clusters.show(10)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "We would like to know if the cluster centers represent meaningful topics. To do that, we will use the word2Vec_model to find the synonyms of the cluster centers in our corpus of words.\n\n##### Write a function findSynonymsClusterCenter(word2Vec_model, kmeans_model , cluster_id) which finds the synonyms of the cluster center of your choice\n\n> Hint 1: `word2Vec_model` is your Word2Vec model, on which you can call the findSynonyms method\n\n> Hint 2: `kmeans_model` is your KMeans model, on which you can call the clusterCenters method with the cluster_id argument"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "import breeze.linalg.DenseVector\nimport org.apache.spark.rdd.RDD\nimport org.apache.spark.ml.feature.{Word2VecModel, KMeansModel}\n\ndef findNearestWord(word2Vec_model: Word2VecModel, kmeans_model: KMeansModel, cluster_id: Int) = {\n  <FILL IN>\n}",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "def findNearestWord(word2Vec_model, kmeans_model, 0)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Write a function titlesInCluster(df , cluster_id) which prints all articles titles found in a given cluster\n\n> Hint 1: `df` is your df_clusters DataFrame model\n\n> Hint 2: `cluster_id` is the id of the selected cluster"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.sql.DataFrame\n\ndef titlesInCluster(df: DataFrame, cluster_id: Int) = {\n    <FILL IN>\n}",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "titlesInCluster(df_clusters, 6)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Write a function mostRepresentedCategoriesInCluster(df , cluster_id) which prints the most represented category of the articles in a given cluster\n\n> Hint 1: `df` is your df_clusters DataFrame model\n\n> Hint 2: `cluster_id` is the id of the selected cluster\n\n> Hint 3: Use the `category` column of the DataFrame"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "def mostRepresentedCategoriesInCluster(df: DataFrame, cluster_id: Int) = {\n    <FILL IN>\n}",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "mostRepresentedCategoriesInCluster(df_clusters, 9)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### (Bonus) Apply a KMeans to the words to see which words are clustered together"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val kmeans = <FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val kmeans_model = kmeans.<FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val words_clusters_df = kmeans_model.<FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "words_clusters_df.show(4)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "words_clusters_df.filter(words_clusters_df(\"cluster\") === 4).show()",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "word2Vec_model.findSynonyms(kmeans_model.clusterCenters(0), 10).show()",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### (Bonus) Identify clusters of words that seem unuseful to you and add the corresponding words to the stopwords list. Then tokenize the texts with this new list, transform the resulting DataFrame with the Word2Vec model and run a KMeans. Does it help improving the clusters interpretation ?"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "markdown",
+    "source" : "## 5 - Latent Dirichlet Allocation\n----"
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "We are now going to try another algorithm to infer topics from documents, which is Latent Dirichlet Allocation. First, we need to map each word to an index and filter undesirable words. We can then train a LDA model to find those topics."
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.ml.feature.CountVectorizer",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Instanciate a new [CountVectorizer](https://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.ml.feature.CountVectorizer) object with the following settings\n- minTF: 5.0\n- minDF: 15.0\n- featuresCol: \"tokens\"\n- outputCol: \"features\""
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val cv = <FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Fit the model on the `df_tokens` DataFrame, and then add a new column with the features"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val cv_model = cv.<FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val df_features = cv_model.<FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "df_features.show(5)",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "cv_model.vocabulary",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "In order to train a LDA model, we need to provide a RDD with an index and a Sparse Vector"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.mllib.clustering.LDA",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "import org.apache.spark.sql.Row\nimport org.apache.spark.mllib.linalg.Vector\n\nval rdd_features = df_features.filter(df_features(\"category\") === \"Data\").select(\"features\").rdd.map{\n  case Row(vector: Vector) =>\n  vector\n}.zipWithIndex.map(_.swap).cache()",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Instanciate and train new [LDA](https://spark.apache.org/docs/latest/api/python/pyspark.mllib.html#pyspark.mllib.clustering.LDA) object with the following settings\n- k: 3\n- maxIterations: 5"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val lda = <FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "> You can change the parameters of the model, but be careful, the training time can be very long"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val lda_model = lda.<FILL IN>",
+    "outputs" : [ ]
+  }, {
+    "metadata" : { },
+    "cell_type" : "markdown",
+    "source" : "##### Use the `describeTopics` method of your ldaModel and the `vocabulary` attribute of your cv_model to observe the description in 10 words of each topics"
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "val topics = lda_model.describeTopics(10)\nval vocab = cv_model.vocabulary",
+    "outputs" : [ ]
+  }, {
+    "metadata" : {
+      "trusted" : true,
+      "input_collapsed" : false,
+      "collapsed" : true
+    },
+    "cell_type" : "code",
+    "source" : "for (topic <- Range(0, 3)) {\n  println(\"Topic \" + topic + \":\")\n  println(\"------\")\n  for (word <- Range(0, 10)) {\n    println(vocab(topics(topic)._1(word)))\n  }\n}",
+    "outputs" : [ ]
+  } ],
+  "nbformat" : 4
+}
